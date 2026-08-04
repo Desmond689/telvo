@@ -57,9 +57,11 @@ export function Messages() {
     }
   }, [chatIdParam, withUserId, threads, profile]);
 
+  if (!profile) return null;
+
   const threadList = threads ?? [];
   const pendingThread = withUserId && activeChatId && !threadList.some((t) => t.id === activeChatId)
-    ? { id: activeChatId, participantIds: [profile?.id ?? '', withUserId], jobId: undefined, lastMessage: 'Starting a conversation...', lastMessageAt: null } as ChatThread
+    ? { id: activeChatId, participantIds: [profile.id, withUserId], jobId: undefined, lastMessage: 'Starting a conversation...', lastMessageAt: null } as ChatThread
     : undefined;
   const displayedThreads = pendingThread ? [pendingThread, ...threadList] : threadList;
   const filteredThreads = displayedThreads.filter((thread) => {
@@ -68,8 +70,8 @@ export function Messages() {
     const otherName = other?.fullName ?? 'Unknown';
     const lastMessage = thread.lastMessage ?? '';
     const query = search.trim().toLowerCase();
-    if (query.isEmpty) return true;
-    return otherName.toLowerCase().contains(query) || lastMessage.toLowerCase().contains(query);
+    if (query.length === 0) return true;
+    return otherName.toLowerCase().includes(query) || lastMessage.toLowerCase().includes(query);
   });
 
   useEffect(() => {
@@ -79,7 +81,7 @@ export function Messages() {
 
   useEffect(() => {
     if (!activeChatId || !profile) return;
-    const unread = messages.some((m) => m.receiverId === profile.id && !m.read);
+    const unread = messages.some((m) => m.receiverId === profile.id && !m.isRead);
     if (!unread) return;
     markThreadAsRead(activeChatId, profile.id).catch((error) => {
       console.error('[TELVO] Failed to mark chat messages as read:', error);
@@ -101,8 +103,6 @@ export function Messages() {
     await sendMessage(activeChatId, profile.id, otherId, text.trim());
     setText('');
   };
-
-  if (!profile) return null;
 
   return (
     <div className="h-[calc(100vh-8rem)] flex gap-4">
