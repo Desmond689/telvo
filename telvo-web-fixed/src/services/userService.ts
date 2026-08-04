@@ -13,6 +13,7 @@ import {
   updateDoc,
   arrayUnion,
   arrayRemove,
+  type QueryConstraint,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db, COLLECTIONS } from '@/lib/firebase';
@@ -21,9 +22,40 @@ import type { TelvoUser } from '@/types';
 const PROFESSIONAL_USER_TYPES = ['professional', 'Professional', 'both', 'Both'] as const;
 const BUSINESS_USER_TYPES = ['business', 'Business'] as const;
 const WORKER_USER_TYPES = [...PROFESSIONAL_USER_TYPES, ...BUSINESS_USER_TYPES] as const;
+const WORKER_MODES = ['professional', 'business'] as const;
 
 function normalizeUserType(userType?: string) {
   return userType?.trim().toLowerCase();
+}
+
+function createBaseConstraints(filters: SearchFilters) {
+  const constraints: QueryConstraint[] = [];
+  if (filters.category) constraints.push(where('category', '==', filters.category));
+  if (filters.city) constraints.push(where('city', '==', filters.city));
+  if (filters.verifiedOnly) constraints.push(where('isVerified', '==', true));
+  return constraints;
+}
+
+function createUserTypeConstraints(userType: string) {
+  if (userType === 'professional') {
+    return [
+      [where('userType', 'in', PROFESSIONAL_USER_TYPES)],
+      [where('mode', '==', 'professional')],
+    ] as QueryConstraint[][];
+  }
+  if (userType === 'business') {
+    return [
+      [where('userType', 'in', BUSINESS_USER_TYPES)],
+      [where('mode', '==', 'business')],
+    ] as QueryConstraint[][];
+  }
+  if (userType === 'all') {
+    return [
+      [where('userType', 'in', WORKER_USER_TYPES)],
+      [where('mode', 'in', WORKER_MODES)],
+    ] as QueryConstraint[][];
+  }
+  return [[where('userType', '==', userType)]] as QueryConstraint[][];
 }
 
 export interface SearchFilters {
@@ -45,58 +77,65 @@ export async function searchProfessionalsOrBusinesses(
   cursor?: QueryDocumentSnapshot
 ) {
   const userType = normalizeUserType(filters.userType) || 'professional';
-  const constraints = [];
+  const baseConstraints = createBaseConstraints(filters);
+  const userTypeQueries = createUserTypeConstraints(userType);
 
-  if (userType === 'professional') {
-    constraints.push(where('userType', 'in', PROFESSIONAL_USER_TYPES));
-  } else if (userType === 'business') {
-    constraints.push(where('userType', 'in', BUSINESS_USER_TYPES));
-  } else if (userType === 'all') {
-    constraints.push(where('userType', 'in', WORKER_USER_TYPES));
-  } else {
-    constraints.push(where('userType', '==', userType));
+  const docs = new Map<string, TelvoUser>();
+  for (const typeConstraints of userTypeQueries) {
+    const constraints = [...typeConstraints, ...baseConstraints];
+    let q = query(collection(db, COLLECTIONS.USERS), ...constraints, orderBy('rating', 'desc'), fbLimit(pageSize));
+    if (cursor && userType !== 'all') {
+      q = query(collection(db, COLLECTIONS.USERS), ...constraints, orderBy('rating', 'desc'), startAfter(cursor), fbLimit(pageSize));
+    }
+    const snap = await getDocs(q);
+    for (const docSnap of snap.docs) {
+      const user = { id: docSnap.id, ...docSnap.data() } as TelvoUser;
+      docs.set(user.id, user);
+    }
   }
 
-  if (filters.category) constraints.push(where('category', '==', filters.category));
-  if (filters.city) constraints.push(where('city', '==', filters.city));
-  if (filters.verifiedOnly) constraints.push(where('isVerified', '==', true));
+  const results = Array.from(docs.values())
+    .filter((r) => r.isSuspended !== true)
+    .filter((r) => (filters.minRating ? (r.rating || 0) >= filters.minRating : true))
+    .sort((a, b) => (b.rating || 0) - (a.rating || 0));
 
-  let q = query(collection(db, COLLECTIONS.USERS), ...constraints, orderBy('rating', 'desc'), fbLimit(pageSize));
-  if (cursor) {
-    q = query(collection(db, COLLECTIONS.USERS), ...constraints, orderBy('rating', 'desc'), startAfter(cursor), fbLimit(pageSize));
+  return {
+    results,
+    lastDoc: null,
+    hasMore: results.length >= pageSize,
+  };
+}
+
+async function fetchFeaturedUsersByType(userType: 'professional' | 'business' | 'all', count = 6): Promise<TelvoUser[]> {
+  const userTypeQueries = createUserTypeConstraints(userType);
+  const docs = new Map<string, TelvoUser>();
+
+  for (const typeConstraints of userTypeQueries) {
+    const q = query(
+      collection(db, COLLECTIONS.USERS),
+      ...typeConstraints,
+      orderBy('rating', 'desc'),
+      fbLimit(count)
+    );
+    const snap = await getDocs(q);
+    for (const docSnap of snap.docs) {
+      const user = { id: docSnap.id, ...docSnap.data() } as TelvoUser;
+      docs.set(user.id, user);
+    }
   }
-  const snap = await getDocs(q);
-  const results = snap.docs
-    .map((d) => ({ id: d.id, ...d.data() } as TelvoUser))
-    .filter((r) => r.isSuspended !== true);
-  const filtered = filters.minRating ? results.filter((r) => (r.rating || 0) >= filters.minRating!) : results;
-  return { results: filtered, lastDoc: snap.docs[snap.docs.length - 1] ?? null, hasMore: snap.docs.length === pageSize };
+
+  return Array.from(docs.values())
+    .filter((u) => u.isSuspended !== true)
+    .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+    .slice(0, count);
 }
 
 export async function getFeaturedProfessionals(count = 6): Promise<TelvoUser[]> {
-  const q = query(
-    collection(db, COLLECTIONS.USERS),
-    where('userType', 'in', PROFESSIONAL_USER_TYPES),
-    orderBy('rating', 'desc'),
-    fbLimit(count)
-  );
-  const snap = await getDocs(q);
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() } as TelvoUser))
-    .filter((u) => u.isSuspended !== true);
+  return fetchFeaturedUsersByType('professional', count);
 }
 
 export async function getFeaturedWorkers(count = 6): Promise<TelvoUser[]> {
-  const q = query(
-    collection(db, COLLECTIONS.USERS),
-    where('userType', 'in', WORKER_USER_TYPES),
-    orderBy('rating', 'desc'),
-    fbLimit(count)
-  );
-  const snap = await getDocs(q);
-  return snap.docs
-    .map((d) => ({ id: d.id, ...d.data() } as TelvoUser))
-    .filter((u) => u.isSuspended !== true);
+  return fetchFeaturedUsersByType('all', count);
 }
 
 export async function toggleFavorite(currentUserId: string, targetId: string, isFavorited: boolean) {

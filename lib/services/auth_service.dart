@@ -60,9 +60,16 @@ class AuthService {
         email: user.email,
         fullName: user.displayName,
         profilePhoto: user.photoURL,
+        userType: 'customer',
+        mode: 'customer',
         isPhoneVerified: user.phoneNumber != null,
         isEmailVerified: user.emailVerified,
         isSuspended: false,
+        rating: 0,
+        jobsCompleted: 0,
+        responseRate: 0,
+        responseTime: 0,
+        isOnline: false,
         createdAt: DateTime.now(),
       );
       await _firestore.collection('users').doc(user.uid).set(newUser.toMap());
