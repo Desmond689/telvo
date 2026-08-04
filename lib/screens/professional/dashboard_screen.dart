@@ -73,13 +73,6 @@ class _ProfessionalDashboardScreenState
         ),
       ),
       bottomNavigationBar: _buildBottomNavigationBar(),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, AppRoutes.jobFeed);
-        },
-        child: const Icon(Icons.work_rounded),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:telvo/models/user_model.dart';
 
 class UserProvider extends ChangeNotifier {
@@ -23,6 +24,7 @@ class UserProvider extends ChangeNotifier {
     double? minRating,
     bool? onlineOnly,
   }) {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
     Query<Map<String, dynamic>> query = _firestore
         .collection('users')
         .where('userType', whereIn: ['professional', 'both']);
@@ -44,6 +46,9 @@ class UserProvider extends ChangeNotifier {
             return user.copyWith(id: doc.id);
           })
           .where((user) {
+            if (currentUserId != null && user.id == currentUserId) {
+              return false;
+            }
             if (minRating != null && (user.rating ?? 0) < minRating) {
               return false;
             }
@@ -67,6 +72,7 @@ class UserProvider extends ChangeNotifier {
   }) async {
     try {
       _setLoading(true);
+      final currentUserId = FirebaseAuth.instance.currentUser?.uid;
       Query<Map<String, dynamic>> query = _firestore
           .collection('users')
           .where('userType', whereIn: ['professional', 'both']);
@@ -82,6 +88,15 @@ class UserProvider extends ChangeNotifier {
           .map((doc) {
             final user = UserModel.fromMap(doc.data());
             return user.copyWith(id: doc.id);
+          })
+          .where((user) {
+            if (currentUserId != null && user.id == currentUserId) {
+              return false;
+            }
+            if (minRating != null && (user.rating ?? 0) < minRating) {
+              return false;
+            }
+            return true;
           })
           .toList();
       users.sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));

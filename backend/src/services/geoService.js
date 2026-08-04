@@ -25,7 +25,7 @@ function choosePrecisionForRadiusKm(radiusKm) {
   return 2;
 }
 
-async function findProfessionalsNearby({ latitude, longitude, category }, radiusKm = 10, limit = 50) {
+async function findProfessionalsNearby({ latitude, longitude, category, excludeUserId }, radiusKm = 10, limit = 50) {
   if (!latitude || !longitude) return [];
   try {
     const precision = choosePrecisionForRadiusKm(radiusKm);
@@ -40,7 +40,7 @@ async function findProfessionalsNearby({ latitude, longitude, category }, radius
       const start = prefix;
       const end = prefix + '\uf8ff';
       let query = db.collection('users')
-        .where('userType', 'array-contains', 'professional')
+        .where('userType', 'in', ['professional', 'both'])
         .where('geoHash', '>=', start)
         .where('geoHash', '<=', end);
 
@@ -51,6 +51,7 @@ async function findProfessionalsNearby({ latitude, longitude, category }, radius
       const snap = await query.get();
       for (const doc of snap.docs) {
         if (unique.has(doc.id)) continue;
+        if (excludeUserId && doc.id === excludeUserId) continue;
         const data = doc.data();
         if (!data.latitude || !data.longitude) continue;
         const distance = haversineDistanceKm(latitude, longitude, data.latitude, data.longitude);

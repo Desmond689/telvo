@@ -105,7 +105,7 @@ class User {
   }
 
   static async getProfessionals(filters = {}) {
-    const conditions = [{ field: 'userType', operator: '==', value: 'professional' }];
+    const conditions = [{ field: 'userType', operator: 'in', value: ['professional', 'both'] }];
     
     if (filters.category) {
       conditions.push({ field: 'category', operator: '==', value: filters.category });
@@ -124,8 +124,12 @@ class User {
       conditions,
       { field: 'rating', direction: 'desc' }
     );
+
+    const filteredResults = filters.excludeUserId
+      ? results.filter((user) => user.id !== filters.excludeUserId)
+      : results;
     
-    return results.map(data => new User(data));
+    return filteredResults.map(data => new User(data));
   }
 
   async save() {

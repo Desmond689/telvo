@@ -2,7 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const { body, param } = require('express-validator');
-const { auth, requireProfessional, requireCustomer } = require('../middleware/auth');
+const { auth, optionalAuth, requireProfessional, requireCustomer } = require('../middleware/auth');
 const { validate } = require('../middleware/validation');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 const { logger } = require('../utils/logger');
@@ -72,6 +72,7 @@ router.put('/profile',
 
 // Get professionals
 router.get('/professionals',
+  optionalAuth,
   async (req, res) => {
     try {
       const { category, city, isOnline, limit = 20 } = req.query;
@@ -80,6 +81,7 @@ router.get('/professionals',
         category,
         city,
         isOnline: isOnline === 'true',
+        excludeUserId: req.userId,
       });
       
       return successResponse(res, professionals.slice(0, parseInt(limit)));

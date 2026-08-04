@@ -40,12 +40,14 @@ const updateProfile = async (req, res) => {
 
 const getProfessionals = async (req, res) => {
   try {
-    const { category, city, isOnline, limit = 20 } = req.query;
+    const { category, city, isOnline, limit = 20, excludeUserId } = req.query;
+    const currentUserId = req.userId || excludeUserId;
     
     const professionals = await User.getProfessionals({
       category,
       city,
       isOnline: isOnline === 'true',
+      excludeUserId: currentUserId,
     });
     
     return successResponse(res, professionals.slice(0, parseInt(limit)));
