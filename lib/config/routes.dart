@@ -28,6 +28,7 @@ import 'package:telvo/screens/professional/reviews_screen.dart';
 import 'package:telvo/screens/professional/job_history_screen.dart';
 import 'package:telvo/screens/profile/profile_screen.dart';
 import 'package:telvo/screens/safety/safety_screen.dart';
+import 'package:telvo/screens/safety/id_verification_screen.dart';
 import 'package:telvo/screens/settings/settings_screen.dart';
 import 'package:telvo/screens/sos/sos_screen.dart';
 import 'package:telvo/screens/splash_screen.dart';
@@ -58,6 +59,7 @@ class AppRoutes {
   static const String favorites = '/favorites';
   static const String history = '/history';
   static const String safety = '/safety';
+  static const String idVerification = '/id-verification';
   static const String sos = '/sos';
   static const String trustedContacts = '/trusted-contacts';
   static const String jobHistory = '/job-history';

@@ -37,11 +37,7 @@ class _SafetyScreenState extends State<SafetyScreen> {
               title: const Text('Verification'),
               subtitle: const Text('Verify your identity and increase trust.'),
               onTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Identity verification is coming soon.'),
-                  ),
-                );
+                Navigator.pushNamed(context, '/id-verification');
               },
             ),
           ),
