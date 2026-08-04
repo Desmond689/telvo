@@ -20,9 +20,10 @@ import type { TelvoUser } from '@/types';
 
 const PROFESSIONAL_USER_TYPES = ['professional', 'Professional', 'both', 'Both'] as const;
 const BUSINESS_USER_TYPES = ['business', 'Business'] as const;
+const WORKER_USER_TYPES = [...PROFESSIONAL_USER_TYPES, ...BUSINESS_USER_TYPES] as const;
 
 function normalizeUserType(userType?: string) {
-  return userType ? userType.toLowerCase() : undefined;
+  return userType?.trim().toLowerCase();
 }
 
 export interface SearchFilters {
@@ -30,7 +31,7 @@ export interface SearchFilters {
   city?: string;
   verifiedOnly?: boolean;
   minRating?: number;
-  userType?: 'professional' | 'business';
+  userType?: 'professional' | 'business' | 'all';
 }
 
 export async function getUserById(id: string): Promise<TelvoUser | null> {
@@ -50,6 +51,8 @@ export async function searchProfessionalsOrBusinesses(
     constraints.push(where('userType', 'in', PROFESSIONAL_USER_TYPES));
   } else if (userType === 'business') {
     constraints.push(where('userType', 'in', BUSINESS_USER_TYPES));
+  } else if (userType === 'all') {
+    constraints.push(where('userType', 'in', WORKER_USER_TYPES));
   } else {
     constraints.push(where('userType', '==', userType));
   }
@@ -74,6 +77,19 @@ export async function getFeaturedProfessionals(count = 6): Promise<TelvoUser[]> 
   const q = query(
     collection(db, COLLECTIONS.USERS),
     where('userType', 'in', PROFESSIONAL_USER_TYPES),
+    orderBy('rating', 'desc'),
+    fbLimit(count)
+  );
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as TelvoUser))
+    .filter((u) => u.isSuspended !== true);
+}
+
+export async function getFeaturedWorkers(count = 6): Promise<TelvoUser[]> {
+  const q = query(
+    collection(db, COLLECTIONS.USERS),
+    where('userType', 'in', WORKER_USER_TYPES),
     orderBy('rating', 'desc'),
     fbLimit(count)
   );

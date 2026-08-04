@@ -13,7 +13,7 @@ import { StarRating } from '@/components/ui/StarRating';
 import { VerifiedBadge } from '@/components/ui/VerifiedBadge';
 import { ProfessionalCardSkeleton } from '@/components/ui/Skeleton';
 import { CAMEROON_CITIES } from '@/types';
-import { getFeaturedProfessionals } from '@/services/userService';
+import { getFeaturedWorkers } from '@/services/userService';
 import type { TelvoUser } from '@/types';
 import { formatXAF } from '@/utils/format';
 
@@ -57,7 +57,7 @@ export function Home() {
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    getFeaturedProfessionals(6)
+    getFeaturedWorkers(6)
       .then(setFeatured)
       .catch(() => setError(true));
   }, []);
@@ -196,11 +196,11 @@ export function Home() {
       <section className="container-page py-16">
         <div className="flex items-end justify-between mb-8">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold text-ink-900">Featured Professionals</h2>
-            <p className="text-ink-500 mt-1">Top-rated, verified pros near you</p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-ink-900">Featured Workers</h2>
+            <p className="text-ink-500 mt-1">Top-rated professionals and businesses near you</p>
           </div>
-          <button onClick={() => navigate('/professionals')} className="hidden sm:flex items-center gap-1 text-sm font-semibold text-brand-600 hover:text-brand-700">
-            View all <ArrowRight size={15} />
+          <button onClick={() => navigate('/find-services')} className="hidden sm:flex items-center gap-1 text-sm font-semibold text-brand-600 hover:text-brand-700">
+            View all workers <ArrowRight size={15} />
           </button>
         </div>
 
@@ -212,11 +212,11 @@ export function Home() {
           </div>
         )}
 
-        {error && <p className="text-sm text-ink-400 text-center py-8">Featured professionals are unavailable right now. Try Find Services instead.</p>}
+        {error && <p className="text-sm text-ink-400 text-center py-8">Featured workers are unavailable right now. Try Find Services instead.</p>}
 
         {featured && featured.length === 0 && (
           <p className="text-sm text-ink-400 text-center py-8">
-            No verified professionals yet — be the first to{' '}
+            No trusted workers yet — be the first to{' '}
             <button className="text-brand-600 underline" onClick={() => navigate('/become-a-professional')}>
               join TELVO
             </button>
@@ -230,13 +230,17 @@ export function Home() {
               <Card key={pro.id} hover className="p-5 cursor-pointer" onClick={() => navigate(`/professional/${pro.id}`)}>
                 <div className="flex items-center gap-3">
                   <span className="w-14 h-14 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-lg font-bold overflow-hidden flex-shrink-0">
-                    {pro.profilePhoto ? <img src={pro.profilePhoto} alt={pro.fullName} className="w-full h-full object-cover" /> : pro.fullName?.[0]}
+                    {(pro.profilePhoto || pro.businessLogo) ? (
+                      <img src={pro.profilePhoto || pro.businessLogo} alt={pro.businessName || pro.fullName} className="w-full h-full object-cover" />
+                    ) : (
+                      (pro.businessName || pro.fullName)?.[0]
+                    )}
                   </span>
                   <div className="min-w-0">
                     <p className="font-semibold text-ink-900 flex items-center gap-1 truncate">
-                      {pro.fullName} {pro.isVerified && <VerifiedBadge />}
+                      {pro.businessName || pro.fullName} {pro.isVerified && <VerifiedBadge />}
                     </p>
-                    <p className="text-sm text-ink-500 truncate">{pro.category || 'General Services'}</p>
+                    <p className="text-sm text-ink-500 truncate">{pro.category || pro.businessCategory || 'General Services'}</p>
                     <p className="text-xs text-ink-400 flex items-center gap-1 mt-0.5">
                       <MapPin size={11} /> {pro.city || 'Cameroon'}
                     </p>

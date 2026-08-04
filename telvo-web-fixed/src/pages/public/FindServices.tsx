@@ -43,7 +43,7 @@ export function FindServices() {
   const load = useCallback(() => {
     setResults(null);
     setError(false);
-    searchProfessionalsOrBusinesses({ category: category || undefined, city: city || undefined, verifiedOnly, minRating, userType: 'professional' }, 24)
+    searchProfessionalsOrBusinesses({ category: category || undefined, city: city || undefined, verifiedOnly, minRating, userType: 'all' }, 24)
       .then((r) => setResults(r.results))
       .catch(() => setError(true));
   }, [category, city, verifiedOnly, minRating]);
@@ -61,7 +61,11 @@ export function FindServices() {
 
   const filteredByQuery = results?.filter((r) => {
     if (currentUserId && r.id === currentUserId) return false;
-    return q ? `${r.fullName} ${r.category || ''} ${(r.skills || []).join(' ')}`.toLowerCase().includes(q.toLowerCase()) : true;
+    return q
+      ? `${r.fullName || ''} ${r.businessName || ''} ${r.category || ''} ${r.businessCategory || ''} ${(r.skills || []).join(' ')}`
+          .toLowerCase()
+          .includes(q.toLowerCase())
+      : true;
   });
 
   return (
@@ -69,7 +73,7 @@ export function FindServices() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-ink-900">Find Services</h1>
-          <p className="text-ink-500 mt-1">{filteredByQuery ? `${filteredByQuery.length} professionals found` : 'Searching...'}</p>
+          <p className="text-ink-500 mt-1">{filteredByQuery ? `${filteredByQuery.length} workers found` : 'Searching...'}</p>
         </div>
 
         <Button
@@ -154,8 +158,8 @@ export function FindServices() {
 
           {filteredByQuery && filteredByQuery.length === 0 && (
             <EmptyState
-              title="No professionals match your search"
-              description="Try widening your filters, or post a job and let professionals come to you."
+              title="No workers match your search"
+              description="Try widening your filters, or post a job and let workers come to you."
               actionLabel="Post a Job"
               onAction={() => navigate('/dashboard/customer/post-job')}
             />
@@ -167,13 +171,17 @@ export function FindServices() {
                 <Card key={pro.id} hover className="p-5 cursor-pointer" onClick={() => navigate(`/professional/${pro.id}`)}>
                   <div className="flex items-start gap-3">
                     <span className="w-14 h-14 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center text-lg font-bold overflow-hidden flex-shrink-0">
-                      {pro.profilePhoto ? <img src={pro.profilePhoto} alt={pro.fullName} className="w-full h-full object-cover" /> : pro.fullName?.[0]}
+                      {(pro.profilePhoto || pro.businessLogo) ? (
+                        <img src={pro.profilePhoto || pro.businessLogo} alt={pro.businessName || pro.fullName} className="w-full h-full object-cover" />
+                      ) : (
+                        (pro.businessName || pro.fullName)?.[0]
+                      )}
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-ink-900 flex items-center gap-1 truncate">
-                        {pro.fullName} {pro.isVerified && <VerifiedBadge />}
+                        {pro.businessName || pro.fullName} {pro.isVerified && <VerifiedBadge />}
                       </p>
-                      <p className="text-sm text-ink-500 truncate">{pro.category || 'General Services'}</p>
+                      <p className="text-sm text-ink-500 truncate">{pro.category || pro.businessCategory || 'General Services'}</p>
                       <p className="text-xs text-ink-400 flex items-center gap-1 mt-0.5">
                         <MapPin size={11} /> {pro.city || 'Cameroon'}
                       </p>
