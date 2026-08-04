@@ -77,8 +77,17 @@ class StorageService {
         folder: 'profile_photos',
         fileName: '$userId.jpg',
       );
-    } catch (_) {
-      return null;
+    } catch (e) {
+      // Surface the actual error for debugging instead of silently returning null
+      final msg = getFriendlyErrorMessage(e);
+      // Keep the old behavior for callers expecting null on failure, but log the detailed error
+      // to help diagnose Cloudinary misconfiguration or network issues.
+      // In debug builds print stack trace as well.
+      if (const bool.fromEnvironment('dart.vm.product') == false) {
+        // ignore: avoid_print
+        print('uploadProfilePhoto error: $e');
+      }
+      throw Exception(msg);
     }
   }
 
