@@ -79,7 +79,7 @@ class UserProvider extends ChangeNotifier {
         .orderBy('jobsCompleted', descending: true)
         .orderBy('isVerified', descending: true)
         .orderBy('lastActive', descending: true)
-        .orderBy('createdAt', ascending: true);
+        .orderBy('createdAt');
 
     return query.snapshots().map((snapshot) {
       final users = snapshot.docs
@@ -151,7 +151,7 @@ class UserProvider extends ChangeNotifier {
           .orderBy('jobsCompleted', descending: true)
           .orderBy('isVerified', descending: true)
           .orderBy('lastActive', descending: true)
-          .orderBy('createdAt', ascending: true);
+          .orderBy('createdAt');
 
       final snapshot = await query.get();
       final users = snapshot.docs
@@ -226,7 +226,7 @@ class UserProvider extends ChangeNotifier {
         .orderBy('jobsCompleted', descending: true)
         .orderBy('isVerified', descending: true)
         .orderBy('lastActive', descending: true)
-        .orderBy('createdAt', ascending: true)
+        .orderBy('createdAt')
         .limit(limit);
 
     if (startAfter != null) {
