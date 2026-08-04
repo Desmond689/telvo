@@ -1,6 +1,13 @@
 // src/models/User.js
 const { getDocumentById, updateDocument, deleteDocument, queryDocuments, COLLECTIONS } = require('../config/database');
 
+const PROFESSIONAL_USER_TYPES = ['professional', 'Professional', 'both', 'Both'];
+const BUSINESS_USER_TYPES = ['business', 'Business'];
+
+function normalizeUserType(userType) {
+  return userType ? userType.toLowerCase() : undefined;
+}
+
 class User {
   constructor(data) {
     this.id = data.id;
@@ -105,7 +112,15 @@ class User {
   }
 
   static async getProfessionals(filters = {}) {
-    const conditions = [{ field: 'userType', operator: 'in', value: ['professional', 'both'] }];
+    const userType = normalizeUserType(filters.userType || 'professional');
+    const conditions = [];
+    if (userType === 'professional') {
+      conditions.push({ field: 'userType', operator: 'in', value: PROFESSIONAL_USER_TYPES });
+    } else if (userType === 'business') {
+      conditions.push({ field: 'userType', operator: 'in', value: BUSINESS_USER_TYPES });
+    } else {
+      conditions.push({ field: 'userType', operator: '==', value: userType });
+    }
     
     if (filters.category) {
       conditions.push({ field: 'category', operator: '==', value: filters.category });
@@ -125,9 +140,10 @@ class User {
       { field: 'rating', direction: 'desc' }
     );
 
+    const nonSuspended = results.filter((user) => user.isSuspended !== true);
     const filteredResults = filters.excludeUserId
-      ? results.filter((user) => user.id !== filters.excludeUserId)
-      : results;
+      ? nonSuspended.filter((user) => user.id !== filters.excludeUserId)
+      : nonSuspended;
     
     return filteredResults.map(data => new User(data));
   }

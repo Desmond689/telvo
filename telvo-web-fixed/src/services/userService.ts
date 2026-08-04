@@ -18,6 +18,13 @@ import {
 import { db, COLLECTIONS } from '@/lib/firebase';
 import type { TelvoUser } from '@/types';
 
+const PROFESSIONAL_USER_TYPES = ['professional', 'Professional', 'both', 'Both'] as const;
+const BUSINESS_USER_TYPES = ['business', 'Business'] as const;
+
+function normalizeUserType(userType?: string) {
+  return userType ? userType.toLowerCase() : undefined;
+}
+
 export interface SearchFilters {
   category?: string;
   city?: string;
@@ -36,11 +43,13 @@ export async function searchProfessionalsOrBusinesses(
   pageSize = 12,
   cursor?: QueryDocumentSnapshot
 ) {
-  const userType = filters.userType || 'professional';
-  const constraints = [where('isSuspended', '==', false)];
+  const userType = normalizeUserType(filters.userType) || 'professional';
+  const constraints = [];
 
   if (userType === 'professional') {
-    constraints.push(where('userType', 'in', ['professional', 'both']));
+    constraints.push(where('userType', 'in', PROFESSIONAL_USER_TYPES));
+  } else if (userType === 'business') {
+    constraints.push(where('userType', 'in', BUSINESS_USER_TYPES));
   } else {
     constraints.push(where('userType', '==', userType));
   }
@@ -54,7 +63,9 @@ export async function searchProfessionalsOrBusinesses(
     q = query(collection(db, COLLECTIONS.USERS), ...constraints, orderBy('rating', 'desc'), startAfter(cursor), fbLimit(pageSize));
   }
   const snap = await getDocs(q);
-  const results = snap.docs.map((d) => ({ id: d.id, ...d.data() } as TelvoUser));
+  const results = snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as TelvoUser))
+    .filter((r) => r.isSuspended !== true);
   const filtered = filters.minRating ? results.filter((r) => (r.rating || 0) >= filters.minRating!) : results;
   return { results: filtered, lastDoc: snap.docs[snap.docs.length - 1] ?? null, hasMore: snap.docs.length === pageSize };
 }
@@ -62,13 +73,14 @@ export async function searchProfessionalsOrBusinesses(
 export async function getFeaturedProfessionals(count = 6): Promise<TelvoUser[]> {
   const q = query(
     collection(db, COLLECTIONS.USERS),
-    where('isSuspended', '==', false),
-    where('userType', 'in', ['professional', 'both']),
+    where('userType', 'in', PROFESSIONAL_USER_TYPES),
     orderBy('rating', 'desc'),
     fbLimit(count)
   );
   const snap = await getDocs(q);
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as TelvoUser));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() } as TelvoUser))
+    .filter((u) => u.isSuspended !== true);
 }
 
 export async function toggleFavorite(currentUserId: string, targetId: string, isFavorited: boolean) {

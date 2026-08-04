@@ -59,7 +59,7 @@ export interface TelvoUser {
 
   favorites: string[];
   blockedUsers: string[];
-  isSuspended: boolean;
+  isSuspended?: boolean;
   isBanned?: boolean;
   isDeleted?: boolean;
   deletedAt?: any;

@@ -17,6 +17,7 @@ class UserModel {
     this.isEmailVerified = false,
     this.isIdVerified = false,
     this.isSelfieVerified = false,
+    this.isSuspended = false,
     this.trustedContacts = const [],
     this.blockedUsers = const [],
     this.createdAt,
@@ -53,13 +54,14 @@ class UserModel {
       city: map['city'],
       neighborhood: map['neighborhood'],
       language: map['language'],
-      userType: map['userType'],
-      mode: map['mode'],
+      userType: map['userType'] != null ? (map['userType'] as String).toLowerCase() : null,
+      mode: map['mode'] != null ? (map['mode'] as String).toLowerCase() : null,
       isVerified: map['isVerified'] ?? false,
       isPhoneVerified: map['isPhoneVerified'] ?? false,
       isEmailVerified: map['isEmailVerified'] ?? false,
       isIdVerified: map['isIdVerified'] ?? false,
       isSelfieVerified: map['isSelfieVerified'] ?? false,
+      isSuspended: map['isSuspended'] ?? false,
       trustedContacts: List<String>.from(map['trustedContacts'] ?? []),
       blockedUsers: List<String>.from(map['blockedUsers'] ?? []),
       createdAt: map['createdAt']?.toDate(),
@@ -101,6 +103,7 @@ class UserModel {
   final bool isEmailVerified;
   final bool isIdVerified;
   final bool isSelfieVerified;
+  final bool isSuspended;
   final List<String> trustedContacts;
   final List<String> blockedUsers;
   final DateTime? createdAt;
@@ -146,8 +149,9 @@ class UserModel {
     'isEmailVerified': isEmailVerified,
     'isIdVerified': isIdVerified,
     'isSelfieVerified': isSelfieVerified,
-    'trustedContacts': trustedContacts,
-    'blockedUsers': blockedUsers,
+        'isSuspended': isSuspended,
+        'trustedContacts': trustedContacts,
+        'blockedUsers': blockedUsers,
     'createdAt': createdAt,
     'lastActive': lastActive,
     'isOnline': isOnline,
@@ -188,6 +192,7 @@ class UserModel {
     bool? isEmailVerified,
     bool? isIdVerified,
     bool? isSelfieVerified,
+    bool? isSuspended,
     List<String>? trustedContacts,
     List<String>? blockedUsers,
     DateTime? createdAt,
@@ -228,6 +233,7 @@ class UserModel {
     isEmailVerified: isEmailVerified ?? this.isEmailVerified,
     isIdVerified: isIdVerified ?? this.isIdVerified,
     isSelfieVerified: isSelfieVerified ?? this.isSelfieVerified,
+    isSuspended: isSuspended ?? this.isSuspended,
     trustedContacts: trustedContacts ?? this.trustedContacts,
     blockedUsers: blockedUsers ?? this.blockedUsers,
     createdAt: createdAt ?? this.createdAt,

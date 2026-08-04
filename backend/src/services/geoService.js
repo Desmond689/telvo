@@ -40,7 +40,7 @@ async function findProfessionalsNearby({ latitude, longitude, category, excludeU
       const start = prefix;
       const end = prefix + '\uf8ff';
       let query = db.collection('users')
-        .where('userType', 'in', ['professional', 'both'])
+          .where('userType', 'in', ['professional', 'Professional', 'both', 'Both'])
         .where('geoHash', '>=', start)
         .where('geoHash', '<=', end);
 
@@ -54,6 +54,7 @@ async function findProfessionalsNearby({ latitude, longitude, category, excludeU
         if (excludeUserId && doc.id === excludeUserId) continue;
         const data = doc.data();
         if (!data.latitude || !data.longitude) continue;
+        if (data.isSuspended === true) continue;
         const distance = haversineDistanceKm(latitude, longitude, data.latitude, data.longitude);
         if (distance <= radiusKm) {
           unique.set(doc.id, { id: doc.id, data, distance });

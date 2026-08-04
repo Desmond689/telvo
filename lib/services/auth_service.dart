@@ -62,6 +62,7 @@ class AuthService {
         profilePhoto: user.photoURL,
         isPhoneVerified: user.phoneNumber != null,
         isEmailVerified: user.emailVerified,
+        isSuspended: false,
         createdAt: DateTime.now(),
       );
       await _firestore.collection('users').doc(user.uid).set(newUser.toMap());

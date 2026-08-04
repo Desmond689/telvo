@@ -163,17 +163,19 @@ class AuthProvider extends ChangeNotifier {
       final user = credential.user;
       if (user == null) throw Exception('Could not create account.');
 
-      final resolvedMode = userType == 'professional'
-          ? 'professional'
-          : 'customer';
+      final normalizedUserType = userType?.toLowerCase();
+      final resolvedMode = normalizedUserType == 'professional'
+        ? 'professional'
+        : 'customer';
       final newUser = UserModel(
         id: user.uid,
         username: normalizedUsername,
         email: email.trim(),
         fullName: fullName.trim(),
         phoneNumber: phoneNumber.trim(),
-        userType: userType,
-        mode: userType == 'both' ? 'customer' : resolvedMode,
+        userType: normalizedUserType,
+        mode: normalizedUserType == 'both' ? 'customer' : resolvedMode,
+        isSuspended: false,
         createdAt: DateTime.now(),
       );
       await _firestore.collection('users').doc(user.uid).set(newUser.toMap());
@@ -357,10 +359,10 @@ class AuthProvider extends ChangeNotifier {
           ? data['language'] as String?
           : _currentUser!.language;
       final userType = data.containsKey('userType')
-          ? data['userType'] as String?
+          ? (data['userType'] as String?)?.toLowerCase()
           : _currentUser!.userType;
       final mode = data.containsKey('mode')
-          ? data['mode'] as String?
+          ? (data['mode'] as String?)?.toLowerCase()
           : _currentUser!.mode;
       final category = data.containsKey('category')
           ? data['category'] as String?

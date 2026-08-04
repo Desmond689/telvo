@@ -58,7 +58,14 @@ export function normalizeCameroonPhone(input: string): string {
   return `+${digits}`;
 }
 
+function normalizeUserType(userType?: string): UserType | undefined {
+  if (!userType) return undefined;
+  return userType.toLowerCase() as UserType;
+}
+
 async function ensureUserDoc(uid: string, data: Partial<TelvoUser>) {
+  const normalizedUserType = normalizeUserType(data.userType as string | undefined);
+  const normalizedMode = normalizeUserType(data.mode as string | undefined) ?? normalizedUserType;
   const ref = doc(db, COLLECTIONS.USERS, uid);
   await setDoc(
     ref,
@@ -81,6 +88,8 @@ async function ensureUserDoc(uid: string, data: Partial<TelvoUser>) {
       createdAt: serverTimestamp(),
       lastActive: serverTimestamp(),
       ...data,
+      userType: normalizedUserType,
+      mode: normalizedMode,
     },
     { merge: true }
   );
@@ -127,7 +136,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       const cred = await createUserWithEmailAndPassword(auth, email, password);
-      await ensureUserDoc(cred.user.uid, { email, fullName, userType, mode: userType === 'admin' ? undefined : userType });
+      await ensureUserDoc(cred.user.uid, {
+        email,
+        fullName,
+        userType: userType.toLowerCase() as UserType,
+        mode: userType === 'admin' ? undefined : (userType.toLowerCase() as UserType),
+      });
     } catch (e: any) {
       setError(mapAuthError(e?.code));
       throw e;
@@ -161,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setError(null);
       try {
         const cred = await confirmation.confirm(otp);
-        const resolvedType = userType ?? 'customer';
+        const resolvedType = (userType ?? 'customer').toLowerCase() as UserType;
         await ensureUserDoc(cred.user.uid, {
           phoneNumber: cred.user.phoneNumber ?? undefined,
           isPhoneVerified: true,
@@ -197,7 +211,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateProfile = useCallback(
     async (fields: Record<string, unknown>) => {
       if (!firebaseUser) throw new Error('Not signed in.');
-      await updateDoc(doc(db, COLLECTIONS.USERS, firebaseUser.uid), fields as any);
+      const normalizedFields = { ...fields };
+      if (fields.userType && typeof fields.userType === 'string') {
+        normalizedFields.userType = fields.userType.toLowerCase();
+      }
+      if (fields.mode && typeof fields.mode === 'string') {
+        normalizedFields.mode = fields.mode.toLowerCase();
+      }
+      await updateDoc(doc(db, COLLECTIONS.USERS, firebaseUser.uid), normalizedFields as any);
     },
     [firebaseUser]
   );
