@@ -1,0 +1,38 @@
+name: Deploy Web to Vercel
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    name: Deploy Web App to Vercel
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v23
+        with:
+          node-version: '20'
+
+      - name: Install web dependencies
+        working-directory: telvo-web-fixed
+        run: npm ci
+
+      - name: Build web app
+        working-directory: telvo-web-fixed
+        run: npm run build
+
+      - name: Deploy to Vercel
+        working-directory: telvo-web-fixed
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+        run: |
+          npx vercel --prod --confirm --token "$VERCEL_TOKEN"
