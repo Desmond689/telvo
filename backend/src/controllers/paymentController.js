@@ -2,6 +2,8 @@
 const Payment = require('../models/Payment');
 const Job = require('../models/Job');
 const Wallet = require('../models/Wallet');
+const NotificationService = require('../services/notificationService');
+const notificationService = new NotificationService();
 const { logger } = require('../utils/logger');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
@@ -48,6 +50,18 @@ const processPayment = async (req, res) => {
       await wallet.addFunds(professionalAmount, `Payment for job ${jobId}`);
       
       await job.processPayment(method, amount);
+      await notificationService.notifyPaymentReceived(job.professionalId, amount);
+      await notificationService.notifyAdmins(
+        'New Payment Received',
+        `A customer paid XAF ${amount} for job ${jobId}.`,
+        {
+          type: 'payment',
+          jobId,
+          paymentId: payment.id,
+          customerId: req.userId,
+          professionalId: job.professionalId,
+        }
+      );
       
       return successResponse(res, payment.toJSON(), 'Payment processed successfully');
     } else {

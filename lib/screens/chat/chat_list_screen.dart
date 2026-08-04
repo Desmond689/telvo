@@ -14,6 +14,15 @@ class ChatListScreen extends StatefulWidget {
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = context.watch<AuthProvider>();
@@ -36,6 +45,15 @@ class _ChatListScreenState extends State<ChatListScreen> {
                 }
 
                 final threads = snapshot.data!;
+                final filteredThreads = threads.where((thread) {
+                  final isUser1 = thread.user1Id == userId;
+                  final otherName = (isUser1 ? thread.user2Name : thread.user1Name) ?? '';
+                  final lastMessage = thread.lastMessage ?? '';
+                  final query = _searchQuery.trim().toLowerCase();
+                  if (query.isEmpty) return true;
+                  return otherName.toLowerCase().contains(query) || lastMessage.toLowerCase().contains(query);
+                }).toList();
+
                 if (threads.isEmpty) {
                   return EmptyState(
                     title: 'No Messages',
@@ -48,13 +66,49 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: threads.length,
-                  itemBuilder: (context, index) {
-                    final thread = threads[index];
-                    return _buildChatTile(thread, userId);
-                  },
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search conversations...',
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
+                          filled: true,
+                          fillColor: Theme.of(context).colorScheme.surfaceVariant,
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            _searchQuery = value;
+                          });
+                        },
+                      ),
+                    ),
+                    if (filteredThreads.isEmpty)
+                      Expanded(
+                        child: EmptyState(
+                          title: 'No matching conversations',
+                          subtitle: 'Try a different keyword or start a new chat.',
+                          imagePath: 'assets/images/empty_state.png',
+                        ),
+                      )
+                    else
+                      Expanded(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: filteredThreads.length,
+                          itemBuilder: (context, index) {
+                            final thread = filteredThreads[index];
+                            return _buildChatTile(thread, userId);
+                          },
+                        ),
+                      ),
+                  ],
                 );
               },
             ),
@@ -65,7 +119,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
     final isUser1 = thread.user1Id == userId;
     final otherName = isUser1 ? thread.user2Name : thread.user1Name;
     final otherPhoto = isUser1 ? thread.user2Photo : thread.user1Photo;
-    final unreadCount = thread.unreadCount ?? 0;
+    final unreadCount = thread.unreadCountFor(userId);
 
     final theme = Theme.of(context);
     return GestureDetector(

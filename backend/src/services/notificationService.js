@@ -11,7 +11,15 @@ class NotificationService {
   async sendPushNotification(userId, title, body, data = {}) {
     let delivered = false;
     try {
-      // Get user's FCM token
+      // Resolve a friendly action URL for the web notification page.
+      const finalData = { ...data };
+      if (!finalData.actionUrl && finalData.type === 'message' && finalData.senderId) {
+        finalData.actionUrl = `messages?with=${finalData.senderId}`;
+      }
+      if (!finalData.actionUrl && finalData.type === 'payment') {
+        finalData.actionUrl = 'notifications';
+      }
+
       const userDoc = await this.db.collection('users').doc(userId).get();
       if (!userDoc.exists) {
         logger.warn(`User ${userId} not found for push notification`);
@@ -27,7 +35,7 @@ class NotificationService {
             notification: { title, body },
             // FCM data payloads must be flat string maps
             data: Object.fromEntries(
-              Object.entries(data).map(([k, v]) => [k, String(v)])
+              Object.entries(finalData).map(([k, v]) => [k, String(v)])
             ),
           });
           delivered = true;
@@ -56,7 +64,7 @@ class NotificationService {
         userId,
         title,
         body,
-        data,
+        data: finalData,
         isRead: false,
         isSent: delivered,
         createdAt: new Date(),
@@ -198,7 +206,19 @@ class NotificationService {
     }
   }
 
-  async notifyMessage(chatId, userId, message) {
+  async notifyAdmins(title, body, data = {}) {
+    try {
+      const admins = await this.db.collection('users').where('userType', '==', 'admin').get();
+      const tasks = admins.docs.map((adminDoc) => this.sendPushNotification(adminDoc.id, title, body, data));
+      await Promise.all(tasks);
+      return true;
+    } catch (error) {
+      logger.error('Notify admins error:', error);
+      return false;
+    }
+  }
+
+  async notifyMessage(chatId, userId, message, senderId) {
     try {
       await this.sendPushNotification(
         userId,
@@ -207,6 +227,7 @@ class NotificationService {
         {
           type: 'message',
           chatId,
+          senderId,
         }
       );
       return true;

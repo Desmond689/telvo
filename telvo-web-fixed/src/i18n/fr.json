@@ -1,0 +1,11 @@
+{
+  "nav": { "findServices": "Trouver un service", "professionals": "Professionnels", "businesses": "Entreprises", "howItWorks": "Comment ça marche", "login": "Connexion", "join": "Rejoindre TELVO" },
+  "home": {
+    "heroTitle": "Des travailleurs de confiance. De vraies solutions.",
+    "heroSubtitle": "Trouvez des professionnels et entreprises de confiance près de chez vous.",
+    "ctaFind": "Trouver un professionnel",
+    "ctaOffer": "Proposer vos services",
+    "searchPlaceholder": "De quel service avez-vous besoin ?",
+    "locationPlaceholder": "Où avez-vous besoin du service ?"
+  }
+}

@@ -115,7 +115,6 @@ void main() async {
         messagingSenderId: dotenv.env['FIREBASE_SENDER_ID'] ?? '',
         projectId: dotenv.env['FIREBASE_PROJECT_ID'] ?? '',
         authDomain: dotenv.env['FIREBASE_AUTH_DOMAIN'] ?? '',
-        storageBucket: dotenv.env['FIREBASE_STORAGE_BUCKET'] ?? '',
       ),
     );
 

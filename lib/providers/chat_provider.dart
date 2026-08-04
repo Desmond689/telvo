@@ -114,18 +114,19 @@ class ChatProvider extends ChangeNotifier {
   Future<void> markAsRead(String chatId, String userId) async {
     try {
       final messages = await _firestore
+          .collection('chats')
+          .doc(chatId)
           .collection('messages')
-          .where('chatId', isEqualTo: chatId)
           .where('receiverId', isEqualTo: userId)
-          .where('isRead', isEqualTo: false)
+          .where('read', isEqualTo: false)
           .get();
 
       for (final doc in messages.docs) {
-        await doc.reference.update({'isRead': true});
+        await doc.reference.update({'read': true});
       }
 
       await _firestore.collection('chats').doc(chatId).update({
-        'unreadCount': 0,
+        'unreadCount.$userId': 0,
       });
     } catch (e) {
       debugPrint('Error marking messages as read: $e');
@@ -189,6 +190,7 @@ class ChatProvider extends ChangeNotifier {
         lastMessage: null,
         lastMessageTime: null,
         unreadCount: 0,
+        unreadCounts: {user1Id: 0, user2Id: 0},
         isActive: true,
       );
 
@@ -202,23 +204,35 @@ class ChatProvider extends ChangeNotifier {
 
   Future<void> sendMessage(ChatMessage message) async {
     try {
-      final messageId = message.id ?? _firestore.collection('messages').doc().id;
+      final messageId = message.id ?? _firestore.collection('chats').doc().collection('messages').doc().id;
       final payload = message
           .copyWith(
             id: messageId,
             timestamp: message.timestamp ?? DateTime.now(),
+            isRead: false,
           )
           .toMap();
 
-      await _firestore.collection('messages').doc(messageId).set(payload);
-
-      if (message.chatId != null) {
-        await _firestore.collection('chats').doc(message.chatId).update({
-          'lastMessage': message.message,
-          'lastMessageTime': FieldValue.serverTimestamp(),
-          'lastMessageAt': FieldValue.serverTimestamp(),
-        });
+      final chatId = message.chatId;
+      if (chatId == null) {
+        throw Exception('Chat ID is required to send a message.');
       }
+
+      await _firestore
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .doc(messageId)
+          .set(payload);
+
+      await _firestore.collection('chats').doc(chatId).set({
+        'lastMessage': message.message,
+        'lastMessageTime': FieldValue.serverTimestamp(),
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'unreadCount': {
+          message.receiverId!: FieldValue.increment(1),
+        },
+      }, SetOptions(merge: true));
     } catch (e) {
       _setError(e.toString());
       rethrow;
@@ -227,8 +241,9 @@ class ChatProvider extends ChangeNotifier {
 
   Stream<List<ChatMessage>> getChatMessages(String chatId) {
     return _firestore
+        .collection('chats')
+        .doc(chatId)
         .collection('messages')
-        .where('chatId', isEqualTo: chatId)
         .orderBy('timestamp', descending: true)
         .snapshots()
         .map((snapshot) {

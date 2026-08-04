@@ -1,0 +1,11 @@
+{
+  "nav": { "findServices": "Find Services", "professionals": "Professionals", "businesses": "Businesses", "howItWorks": "How It Works", "login": "Log in", "join": "Join TELVO" },
+  "home": {
+    "heroTitle": "Trusted workers. Real solutions.",
+    "heroSubtitle": "Find trusted professionals and businesses near you for the services you need.",
+    "ctaFind": "Find a Professional",
+    "ctaOffer": "Offer Your Services",
+    "searchPlaceholder": "What service do you need?",
+    "locationPlaceholder": "Where do you need the service?"
+  }
+}

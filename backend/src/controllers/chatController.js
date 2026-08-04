@@ -1,6 +1,7 @@
 // src/controllers/chatController.js
-const { ChatThread, ChatMessage } = require('../models/Chat');
+const { ChatThread } = require('../models/Chat');
 const User = require('../models/User');
+const NotificationService = require('../services/notificationService');
 const { logger } = require('../utils/logger');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
@@ -57,6 +58,11 @@ const sendMessage = async (req, res) => {
       type,
       mediaUrl,
     });
+
+    const notificationService = new NotificationService();
+    notificationService.notifyMessage(thread.id, receiverId, message, req.userId).catch((err) => {
+      logger.error('Failed to send chat notification:', err);
+    });
     
     return successResponse(res, msg, 'Message sent successfully');
   } catch (error) {
@@ -85,13 +91,20 @@ const createChat = async (req, res) => {
     
     const currentUser = await User.findById(req.userId);
     
+    const chatId = [req.userId, userId].sort().join('_');
     thread = await ChatThread.create({
+      id: chatId,
+      participantIds: [req.userId, userId],
       user1Id: req.userId,
       user2Id: userId,
       user1Name: currentUser.fullName,
       user1Photo: currentUser.profilePhoto,
       user2Name: otherUser.fullName,
       user2Photo: otherUser.profilePhoto,
+      unreadCount: { [req.userId]: 0, [userId]: 0 },
+      lastMessage: null,
+      lastMessageTime: null,
+      isActive: true,
     });
     
     return successResponse(res, thread, 'Chat created successfully', 201);

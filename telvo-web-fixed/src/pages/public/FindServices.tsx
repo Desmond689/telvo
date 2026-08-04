@@ -16,6 +16,9 @@ import { searchProfessionalsOrBusinesses } from '@/services/userService';
 import { getCategories } from '@/services/categoryService';
 import type { ServiceCategory } from '@/types';
 import { formatXAF } from '@/utils/format';
+import { auth } from '@/lib/firebase';
+
+const TELVO_APP_DOWNLOAD_URL = 'https://github.com/Desmond689/TELVO-/releases/download/v1.0.0/app-release.apk';
 
 export function FindServices() {
   const [params, setParams] = useSearchParams();
@@ -31,6 +34,7 @@ export function FindServices() {
   const q = params.get('q') || '';
   const verifiedOnly = params.get('verified') === '1';
   const minRating = Number(params.get('minRating') || 0);
+  const currentUserId = auth.currentUser?.uid;
 
   useEffect(() => {
     getCategories().then(setCategories);
@@ -55,15 +59,26 @@ export function FindServices() {
     setParams(next);
   };
 
-  const filteredByQuery = results?.filter((r) =>
-    q ? `${r.fullName} ${r.category || ''} ${(r.skills || []).join(' ')}`.toLowerCase().includes(q.toLowerCase()) : true
-  );
+  const filteredByQuery = results?.filter((r) => {
+    if (currentUserId && r.id === currentUserId) return false;
+    return q ? `${r.fullName} ${r.category || ''} ${(r.skills || []).join(' ')}`.toLowerCase().includes(q.toLowerCase()) : true;
+  });
 
   return (
     <div className="container-page py-8">
-      <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-ink-900">Find Services</h1>
-        <p className="text-ink-500 mt-1">{filteredByQuery ? `${filteredByQuery.length} professionals found` : 'Searching...'}</p>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-ink-900">Find Services</h1>
+          <p className="text-ink-500 mt-1">{filteredByQuery ? `${filteredByQuery.length} professionals found` : 'Searching...'}</p>
+        </div>
+
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => window.open(TELVO_APP_DOWNLOAD_URL, '_blank', 'noopener,noreferrer')}
+        >
+          Download TELVO App
+        </Button>
       </div>
 
       <div className="flex flex-col lg:flex-row gap-6">

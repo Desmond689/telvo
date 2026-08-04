@@ -5,7 +5,8 @@ class AppConfig {
   static const String appVersion = '1.0.0';
   static String get apiBaseUrl =>
       dotenv.env['API_BASE_URL'] ?? 'https://api.telvo.app';
-  static String get cloudinaryCloudName => dotenv.env['CLOUDINARY_CLOUD_NAME'] ?? '';
+  static String get cloudinaryCloudName =>
+      dotenv.env['CLOUDINARY_CLOUD_NAME'] ?? 'rxtcnv16';
   static String get cloudinaryUploadPreset =>
       dotenv.env['CLOUDINARY_UPLOAD_PRESET'] ?? '';
   static const int otpResendTimeout = 60; // seconds

@@ -25,7 +25,7 @@ class ChatMessage {
       type: map['type'] ?? 'text',
       mediaUrl: map['mediaUrl'],
       timestamp: map['timestamp']?.toDate(),
-      isRead: map['isRead'] ?? false,
+      isRead: map['read'] ?? map['isRead'] ?? false,
       isDelivered: map['isDelivered'] ?? false,
       isSeen: map['isSeen'] ?? false,
     );
@@ -93,6 +93,7 @@ class ChatThread {
     this.lastMessage,
     this.lastMessageTime,
     this.unreadCount = 0,
+    this.unreadCounts,
     this.user1Name,
     this.user1Photo,
     this.user2Name,
@@ -111,6 +112,15 @@ class ChatThread {
       fallbackParticipantIds.add(map['user2Id']);
     }
 
+    Map<String, int>? unreadCounts;
+    if (map['unreadCount'] is Map) {
+      unreadCounts = Map<String, int>.fromEntries(
+        (map['unreadCount'] as Map).entries.map(
+          (entry) => MapEntry(entry.key.toString(), int.tryParse(entry.value?.toString() ?? '') ?? 0),
+        ),
+      );
+    }
+
     return ChatThread(
       id: map['id'],
       participantIds: participantIds.isNotEmpty ? participantIds : fallbackParticipantIds,
@@ -118,7 +128,8 @@ class ChatThread {
       user2Id: map['user2Id'],
       lastMessage: map['lastMessage'],
       lastMessageTime: map['lastMessageTime']?.toDate() ?? map['lastMessageAt']?.toDate(),
-      unreadCount: map['unreadCount'] ?? 0,
+      unreadCount: map['unreadCount'] is int ? map['unreadCount'] as int : 0,
+      unreadCounts: unreadCounts,
       user1Name: map['user1Name'],
       user1Photo: map['user1Photo'],
       user2Name: map['user2Name'],
@@ -133,11 +144,14 @@ class ChatThread {
   final String? lastMessage;
   final DateTime? lastMessageTime;
   final int? unreadCount;
+  final Map<String, int>? unreadCounts;
   final String? user1Name;
   final String? user1Photo;
   final String? user2Name;
   final String? user2Photo;
   final bool? isActive;
+
+  int unreadCountFor(String userId) => unreadCounts?[userId] ?? unreadCount ?? 0;
 
   Map<String, dynamic> toMap() => {
         'id': id,
@@ -147,7 +161,7 @@ class ChatThread {
         'lastMessage': lastMessage,
         'lastMessageTime': lastMessageTime ?? FieldValue.serverTimestamp(),
         'lastMessageAt': lastMessageTime ?? FieldValue.serverTimestamp(),
-        'unreadCount': unreadCount,
+        'unreadCount': unreadCounts ?? unreadCount,
         'user1Name': user1Name,
         'user1Photo': user1Photo,
         'user2Name': user2Name,
@@ -163,6 +177,7 @@ class ChatThread {
     String? lastMessage,
     DateTime? lastMessageTime,
     int? unreadCount,
+    Map<String, int>? unreadCounts,
     String? user1Name,
     String? user1Photo,
     String? user2Name,
@@ -177,6 +192,7 @@ class ChatThread {
         lastMessage: lastMessage ?? this.lastMessage,
         lastMessageTime: lastMessageTime ?? this.lastMessageTime,
         unreadCount: unreadCount ?? this.unreadCount,
+        unreadCounts: unreadCounts ?? this.unreadCounts,
         user1Name: user1Name ?? this.user1Name,
         user1Photo: user1Photo ?? this.user1Photo,
         user2Name: user2Name ?? this.user2Name,

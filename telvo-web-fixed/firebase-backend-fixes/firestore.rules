@@ -1,0 +1,183 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Admins are marked via a custom claim set server-side (backend/src)
+    // after verifying admin credentials - never trust a client-writable flag.
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
+    }
+
+    // Minimal public mapping used only to resolve a username to an email
+    // address before sign-in/sign-up (when the client isn't authenticated
+    // yet). Deliberately separate from /users so the full profile collection
+    // never needs to be publicly readable. Immutable once claimed - a
+    // username can't be reassigned to a different account.
+    match /usernames/{username} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // ---- users ----
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId);
+      // A user can update their own profile, but never their own verification
+      // or ban status - only the backend (via admin SDK, which bypasses rules)
+      // or an admin-claim account may do that. Mode changes are only allowed
+      // for dual accounts (userType == 'both').
+      allow update: if (isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['isVerified', 'isBanned', 'isPhoneVerified']) &&
+        (!request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['mode']) || resource.data.userType == 'both')) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ---- jobs ----
+    match /jobs/{jobId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.customerId == request.auth.uid;
+      allow update: if isSignedIn() &&
+        (resource.data.customerId == request.auth.uid ||
+         resource.data.professionalId == request.auth.uid ||
+         isAdmin() ||
+         // A professional who doesn't own this job yet is sending a quote -
+         // that only ever touches the `quotes` array, nothing else on the
+         // job, so it's safe to allow before they're the assigned pro.
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['quotes']));
+      allow delete: if isSignedIn() &&
+        resource.data.customerId == request.auth.uid || isAdmin();
+
+      // ---- quotes (subcollection or top-level, handled by top-level rule below) ----
+    }
+
+    match /quotes/{quoteId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() &&
+        request.resource.data.professionalId == request.auth.uid;
+      allow update: if isSignedIn() &&
+        (resource.data.professionalId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ---- reviews ----
+    match /reviews/{reviewId} {
+      allow read: if true; // public - reviews are meant to be visible
+      allow create: if isSignedIn() &&
+        request.resource.data.reviewerId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ---- chats & messages ----
+    // Both web (chatService.ts) and mobile write `chats` as a top-level
+    // collection keyed by participantIds (not `participants`), and
+    // `messages` as its own top-level collection filtered by `chatId` -
+    // not a `chats/{chatId}/messages` subcollection. Rules below match
+    // that real schema; a mismatch here silently blocks every message.
+    match /chats/{chatId} {
+      allow read, update: if isSignedIn() &&
+        request.auth.uid in resource.data.participantIds;
+      allow create: if isSignedIn() &&
+        request.auth.uid in request.resource.data.participantIds;
+      allow delete: if isAdmin();
+    }
+
+    match /messages/{messageId} {
+      allow read: if isSignedIn() &&
+        (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+      allow create: if isSignedIn() &&
+        request.resource.data.senderId == request.auth.uid;
+      // The receiver may only flip read/delivered/seen flags - the message
+      // body itself is immutable once sent.
+      allow update: if isSignedIn() &&
+        resource.data.receiverId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead', 'isSeen', 'isDelivered']);
+      allow delete: if false;
+    }
+
+    // ---- payments : never client-writable, backend (admin SDK) only ----
+    match /payments/{paymentId} {
+      allow read: if isSignedIn() &&
+        (resource.data.customerId == request.auth.uid ||
+         resource.data.professionalId == request.auth.uid ||
+         isAdmin());
+      allow write: if false; // only backend via Admin SDK (bypasses rules)
+    }
+
+    // ---- wallets : never client-writable ----
+    match /wallets/{walletId} {
+      allow read: if isOwner(walletId) || isAdmin();
+      allow write: if false; // only backend via Admin SDK
+    }
+
+    // ---- notifications ----
+    match /notifications/{notificationId} {
+      allow read, update: if isSignedIn() &&
+        resource.data.userId == request.auth.uid;
+      allow create: if false; // only backend sends notifications
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    // ---- reports / disputes ----
+    match /reports/{reportId} {
+      allow read: if isSignedIn() &&
+        (resource.data.reportedBy == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() &&
+        request.resource.data.reportedBy == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ---- admin-only collections (categories, promotions, settings) ----
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /promotions/{promoId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---- donations : public donate page, no login required ----
+    match /donations/{donationId} {
+      allow read: if isAdmin();
+      allow create: if true;
+      allow update, delete: if isAdmin();
+    }
+
+    match /admins/{adminId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ---- app_config : APK version/release info, admin-managed ----
+    // Public read so the website's Download page (and, in future, the
+    // app's own in-app update check) can show it without authenticating.
+    match /app_config/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---- settings : platform-wide settings (e.g. Support/donate info) ----
+    match /settings/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Default deny for anything not explicitly listed above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

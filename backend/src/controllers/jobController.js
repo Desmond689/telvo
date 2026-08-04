@@ -1,6 +1,7 @@
 // src/controllers/jobController.js
 const Job = require('../models/Job');
 const User = require('../models/User');
+const { ChatThread } = require('../models/Chat');
 const { logger } = require('../utils/logger');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 const NotificationService = require('../services/notificationService');
@@ -169,6 +170,35 @@ const acceptQuote = async (req, res) => {
     
     await job.acceptQuote(quoteId);
     logger.info(`Quote accepted: ${quoteId} for job ${job.id}`);
+
+    try {
+      const customer = await User.findById(job.customerId);
+      const professional = await User.findById(quote.professionalId);
+      const existingThread = await ChatThread.findByUsers(job.customerId, quote.professionalId);
+      if (!existingThread) {
+        const chatId = [job.customerId, quote.professionalId].sort().join('_');
+        await ChatThread.create({
+          id: chatId,
+          participantIds: [job.customerId, quote.professionalId],
+          user1Id: job.customerId,
+          user2Id: quote.professionalId,
+          user1Name: customer?.fullName,
+          user1Photo: customer?.profilePhoto,
+          user2Name: professional?.fullName,
+          user2Photo: professional?.profilePhoto,
+          unreadCount: { [job.customerId]: 0, [quote.professionalId]: 0 },
+          lastMessage: `Job ${job.id} has been accepted. Start discussing details here.`,
+          lastMessageTime: new Date(),
+          jobId: job.id,
+          isActive: true,
+        });
+      } else if (!existingThread.jobId) {
+        existingThread.jobId = job.id;
+        await existingThread.save();
+      }
+    } catch (chatError) {
+      logger.error('Failed to create chat thread for accepted job:', chatError);
+    }
 
     try {
       await notificationService.sendPushNotification(

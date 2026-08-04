@@ -112,9 +112,13 @@ service cloud.firestore {
         allow read: if isSignedIn() &&
           request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
         allow create: if isSignedIn() &&
-          request.resource.data.senderId == request.auth.uid;
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.receiverId is string &&
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds;
         allow update: if isSignedIn() &&
-          request.resource.data.receiverId == request.auth.uid;
+          request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participantIds &&
+          request.resource.data.read == true &&
+          resource.data.receiverId == request.auth.uid;
         allow delete: if false; // messages are immutable
       }
     }

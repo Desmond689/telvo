@@ -25,6 +25,14 @@ class _ChatScreenState extends State<ChatScreen> {
   ChatThread? _thread;
   UserModel? _otherUser;
   bool _isLoading = true;
+  bool _hasMarkedRead = false;
+
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   void didChangeDependencies() {
@@ -176,7 +184,7 @@ class _ChatScreenState extends State<ChatScreen> {
     ).showSnackBar(const SnackBar(content: Text('Sending photo...')));
 
     try {
-      // Upload directly to Firebase Storage (no backend API needed).
+      // Upload directly to Cloudinary (no Firebase Storage needed).
       final url = await StorageService().uploadFileDirect(
         file: File(picked.path),
         folder: 'chat_images/${_thread!.id}',
@@ -266,7 +274,31 @@ class _ChatScreenState extends State<ChatScreen> {
               child: const Icon(Icons.person),
             ),
             const SizedBox(width: 12),
-            Text(otherName ?? 'Unknown'),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    otherName ?? 'Unknown',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _otherUser?.isOnline == true
+                        ? 'Online'
+                        : _otherUser?.lastActive != null
+                            ? 'Last active ${_formatRelativeTime(_otherUser!.lastActive!)}'
+                            : 'Offline',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.85),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
         elevation: 0,
@@ -335,6 +367,20 @@ class _ChatScreenState extends State<ChatScreen> {
                         );
                       }
 
+                      final shouldMarkRead = userId != null && messages.any(
+                        (message) => message.receiverId == userId && message.isRead == false,
+                      );
+                      if (shouldMarkRead) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) async {
+                          await chatProvider.markAsRead(_thread!.id!, userId);
+                          if (mounted) {
+                            setState(() {
+                              _hasMarkedRead = true;
+                            });
+                          }
+                        });
+                      }
+ 
                       WidgetsBinding.instance.addPostFrameCallback((_) {
                         if (_scrollController.hasClients) {
                           _scrollController.animateTo(
@@ -414,12 +460,28 @@ class _ChatScreenState extends State<ChatScreen> {
               style: TextStyle(color: isMe ? Colors.white : Colors.black),
             ),
           const SizedBox(height: 4),
-          Text(
-            _formatTime(message.timestamp ?? DateTime.now()),
-            style: TextStyle(
-              fontSize: 10,
-              color: isMe ? Colors.white70 : Colors.grey.shade600,
-            ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _formatTime(message.timestamp ?? DateTime.now()),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isMe ? Colors.white70 : Colors.grey.shade600,
+                ),
+              ),
+              if (isMe)
+                Padding(
+                  padding: const EdgeInsets.only(left: 6),
+                  child: Icon(
+                    message.isRead == true ? Icons.done_all : Icons.done,
+                    size: 12,
+                    color: message.isRead == true
+                        ? Colors.white70
+                        : Colors.white54,
+                  ),
+                ),
+            ],
           ),
         ],
       ),
@@ -475,4 +537,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
   String _formatTime(DateTime time) =>
       '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+
+  String _formatRelativeTime(DateTime time) {
+    final difference = DateTime.now().difference(time);
+    if (difference.inMinutes < 1) return 'just now';
+    if (difference.inHours < 1) return '${difference.inMinutes}m ago';
+    if (difference.inDays < 1) return '${difference.inHours}h ago';
+    return '${difference.inDays}d ago';
+  }
 }
