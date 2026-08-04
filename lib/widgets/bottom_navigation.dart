@@ -30,9 +30,14 @@ class CustomBottomNavigation extends StatelessWidget {
           label: 'Search',
         ),
         NavigationDestination(
-          icon: Icon(Icons.history_outlined),
-          selectedIcon: Icon(Icons.history),
-          label: 'History',
+          icon: Icon(Icons.message_outlined),
+          selectedIcon: Icon(Icons.message_rounded),
+          label: 'Messages',
+        ),
+        NavigationDestination(
+          icon: Icon(Icons.work_outline_rounded),
+          selectedIcon: Icon(Icons.work_rounded),
+          label: 'Jobs',
         ),
         NavigationDestination(
           icon: Icon(Icons.person_outline),

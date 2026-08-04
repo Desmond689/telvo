@@ -79,7 +79,7 @@ class _ProfessionalDashboardScreenState
         },
         child: const Icon(Icons.work_rounded),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -519,12 +519,15 @@ class _ProfessionalDashboardScreenState
         case 0:
           break;
         case 1:
-          Navigator.pushNamed(context, AppRoutes.jobFeed);
+          Navigator.pushNamed(context, AppRoutes.search);
           break;
         case 2:
-          Navigator.pushNamed(context, AppRoutes.earnings);
+          Navigator.pushNamed(context, AppRoutes.chatList);
           break;
         case 3:
+          Navigator.pushNamed(context, AppRoutes.jobFeed);
+          break;
+        case 4:
           Navigator.pushNamed(context, AppRoutes.profile);
           break;
       }
@@ -535,17 +538,22 @@ class _ProfessionalDashboardScreenState
       NavigationDestination(
         icon: Icon(Icons.dashboard_outlined),
         selectedIcon: Icon(Icons.dashboard_rounded),
-        label: 'Dashboard',
+        label: 'Home',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.search_outlined),
+        selectedIcon: Icon(Icons.search_rounded),
+        label: 'Search',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.message_outlined),
+        selectedIcon: Icon(Icons.message_rounded),
+        label: 'Messages',
       ),
       NavigationDestination(
         icon: Icon(Icons.work_outline_rounded),
         selectedIcon: Icon(Icons.work_rounded),
         label: 'Jobs',
-      ),
-      NavigationDestination(
-        icon: Icon(Icons.account_balance_wallet_outlined),
-        selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-        label: 'Earnings',
       ),
       NavigationDestination(
         icon: Icon(Icons.person_outline_rounded),

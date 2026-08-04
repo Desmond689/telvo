@@ -76,7 +76,7 @@ class _HomeScreenState extends State<HomeScreen> {
         onPressed: _showCreateOptions,
         child: const Icon(Icons.add_rounded),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
@@ -477,9 +477,12 @@ class _HomeScreenState extends State<HomeScreen> {
           Navigator.pushNamed(context, AppRoutes.search);
           break;
         case 2:
-          Navigator.pushNamed(context, AppRoutes.history);
+          Navigator.pushNamed(context, AppRoutes.chatList);
           break;
         case 3:
+          Navigator.pushNamed(context, AppRoutes.jobTracking);
+          break;
+        case 4:
           Navigator.pushNamed(context, AppRoutes.profile);
           break;
       }
@@ -498,9 +501,14 @@ class _HomeScreenState extends State<HomeScreen> {
         label: 'Search',
       ),
       NavigationDestination(
-        icon: Icon(Icons.history_outlined),
-        selectedIcon: Icon(Icons.history_rounded),
-        label: 'History',
+        icon: Icon(Icons.message_outlined),
+        selectedIcon: Icon(Icons.message_rounded),
+        label: 'Messages',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.work_outline_rounded),
+        selectedIcon: Icon(Icons.work_rounded),
+        label: 'Jobs',
       ),
       NavigationDestination(
         icon: Icon(Icons.person_outline_rounded),
