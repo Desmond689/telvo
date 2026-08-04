@@ -559,10 +559,13 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _updateOnlineStatus(false);
       if (_currentUser != null) {
-        try {
-          await NotificationService().unregisterToken(_currentUser!.id);
-        } catch (_) {
-          // ignore errors here - sign out should proceed regardless
+        final userId = _currentUser?.id;
+        if (userId != null && userId.isNotEmpty) {
+          try {
+            await NotificationService().unregisterToken(userId);
+          } catch (_) {
+            // ignore errors here - sign out should proceed regardless
+          }
         }
       }
 

@@ -31,7 +31,7 @@ class ForegroundNotificationManager {
       final image = data['senderPhotoUrl'] as String? ?? data['image'] as String?;
       final type = data['type'] as String?;
 
-      final overlayState = appNavigatorKey.currentState?.overlay;
+      final overlayState = navigatorKey.currentState?.overlay;
       if (overlayState == null) return;
 
       // Remove existing banner if any
