@@ -57,15 +57,16 @@ export function Messages() {
     }
   }, [chatIdParam, withUserId, threads, profile]);
 
-  if (!profile) return null;
+  const currentUserId = profile?.id;
+  if (!profile || !currentUserId) return null;
 
   const threadList = threads ?? [];
   const pendingThread = withUserId && activeChatId && !threadList.some((t) => t.id === activeChatId)
-    ? { id: activeChatId, participantIds: [profile.id, withUserId], jobId: undefined, lastMessage: 'Starting a conversation...', lastMessageAt: null } as ChatThread
+    ? { id: activeChatId, participantIds: [currentUserId, withUserId], jobId: undefined, lastMessage: 'Starting a conversation...', lastMessageAt: null } as ChatThread
     : undefined;
   const displayedThreads = pendingThread ? [pendingThread, ...threadList] : threadList;
   const filteredThreads = displayedThreads.filter((thread) => {
-    const otherId = thread.participantIds.find((p) => p !== profile.id) ?? '';
+    const otherId = thread.participantIds.find((p) => p !== currentUserId) ?? '';
     const other = participants[otherId];
     const otherName = other?.fullName ?? 'Unknown';
     const lastMessage = thread.lastMessage ?? '';
@@ -171,12 +172,12 @@ export function Messages() {
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {messages.map((m) => (
-                <div key={m.id} className={`flex ${m.senderId === profile.id ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${m.senderId === profile.id ? 'bg-brand-500 text-white' : 'bg-ink-100 text-ink-800'}`}>
+                <div key={m.id} className={`flex ${m.senderId === currentUserId ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm ${m.senderId === currentUserId ? 'bg-brand-500 text-white' : 'bg-ink-100 text-ink-800'}`}>
                     <div>{m.message}</div>
-                    <div className="mt-1 flex items-center gap-1 text-[10px] ${m.senderId === profile.id ? 'text-brand-100' : 'text-ink-400'}">
+                    <div className={`mt-1 flex items-center gap-1 text-[10px] ${m.senderId === currentUserId ? 'text-brand-100' : 'text-ink-400'}`}>
                       <span>{timeAgo(m.timestamp)}</span>
-                      {m.senderId === profile.id && (
+                      {m.senderId === currentUserId && (
                         <span className="inline-flex items-center gap-1 text-[10px] text-brand-100">
                           {m.isRead ? 'Read' : 'Sent'}
                         </span>
