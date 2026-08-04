@@ -296,6 +296,21 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 4),
+                  // Show the active mode so dual-mode users don't get confused
+                  Builder(builder: (ctx) {
+                    final auth = ctx.watch<AuthProvider>();
+                    final modeLabel = auth.isProfessionalMode ? 'Professional' : 'Customer';
+                    return Text(
+                      'Chatting as: $modeLabel',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withOpacity(0.9),
+                        fontStyle: FontStyle.italic,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  }),
                 ],
               ),
             ),

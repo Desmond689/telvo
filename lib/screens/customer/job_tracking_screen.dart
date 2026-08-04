@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:telvo/models/job_model.dart';
 import 'package:telvo/config/routes.dart';
 import 'package:telvo/widgets/custom_button.dart';
+import 'package:telvo/providers/job_provider.dart';
 
 class JobTrackingScreen extends StatefulWidget {
   const JobTrackingScreen({super.key});
@@ -270,9 +272,22 @@ class _JobTrackingScreenState extends State<JobTrackingScreen> {
             child: const Text('No'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
+            onPressed: () async {
+              Navigator.pop(context); // close dialog
+              if (_job?.id == null) return;
+              try {
+                await context.read<JobProvider>().cancelJob(_job!.id!);
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Job cancelled')),
+                );
+              } catch (e) {
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to cancel job: $e')),
+                );
+              }
+              Navigator.pop(context); // go back from tracking screen
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Yes, Cancel'),

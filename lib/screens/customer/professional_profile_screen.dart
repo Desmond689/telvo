@@ -160,7 +160,72 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                 },
                 icon: const Icon(Icons.share, color: Colors.white),
               ),
-            ],
+                PopupMenuButton<String>(
+                  color: Theme.of(context).colorScheme.surface,
+                  onSelected: (value) async {
+                    final authProvider = context.read<AuthProvider>();
+                    final currentUserId = authProvider.currentUser?.id;
+                    if (value == 'report') {
+                      // Ask for reason
+                      final reasonController = TextEditingController();
+                      final res = await showDialog<String?>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Report User'),
+                          content: TextField(
+                            controller: reasonController,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              hintText: 'Describe the issue',
+                            ),
+                          ),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, reasonController.text.trim()),
+                              child: const Text('Submit'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (res != null && res.isNotEmpty && professional.id != null) {
+                        try {
+                          await context.read<UserProvider>().reportUser(professional.id!, res);
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report submitted')));
+                        } catch (e) {
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Report failed: $e')));
+                        }
+                      }
+                    } else if (value == 'block') {
+                      if (currentUserId == null || professional.id == null) return;
+                      final confirm = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Block User?'),
+                          content: const Text('Blocked users will not be able to contact you.'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+                            TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Yes')),
+                          ],
+                        ),
+                      );
+                      if (confirm == true) {
+                        try {
+                          await context.read<UserProvider>().blockUser(currentUserId, professional.id!);
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('User blocked')));
+                        } catch (e) {
+                          if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to block user: $e')));
+                        }
+                      }
+                    }
+                  },
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'report', child: Text('Report User')),
+                    PopupMenuItem(value: 'block', child: Text('Block User')),
+                  ],
+                  icon: const Icon(Icons.more_vert, color: Colors.white),
+                ),
+              ],
           ),
           SliverList(
             delegate: SliverChildListDelegate([

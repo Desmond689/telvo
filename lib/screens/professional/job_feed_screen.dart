@@ -10,6 +10,7 @@ import 'package:telvo/widgets/job_card.dart';
 import 'package:telvo/widgets/custom_button.dart';
 import 'package:telvo/widgets/custom_text_field.dart';
 import 'package:telvo/utils/helpers.dart';
+import 'package:telvo/utils/lookup_data.dart';
 
 class JobFeedScreen extends StatefulWidget {
   const JobFeedScreen({super.key});
@@ -24,14 +25,7 @@ class _JobFeedScreenState extends State<JobFeedScreen> {
 
   final List<String> _categories = [
     'All',
-    'Plumber',
-    'Electrician',
-    'Cleaner',
-    'Painter',
-    'Carpenter',
-    'Mechanic',
-    'Gardener',
-    'Tutor',
+    ...LookupData.jobCategories,
   ];
   String _selectedCategory = 'All';
   bool _showOnlyNearby = false;
