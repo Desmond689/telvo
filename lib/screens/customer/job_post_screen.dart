@@ -10,6 +10,7 @@ import 'package:telvo/services/storage_service.dart';
 import 'package:telvo/utils/app_colors.dart';
 import 'package:telvo/utils/error_messages.dart';
 import 'package:telvo/utils/geo.dart';
+import 'package:telvo/utils/lookup_data.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:telvo/widgets/custom_button.dart';
 import 'package:telvo/widgets/custom_text_field.dart';
@@ -37,16 +38,7 @@ class _JobPostScreenState extends State<JobPostScreen> {
   final StorageService _storageService = StorageService();
   bool _isPosting = false;
 
-  final List<String> _categories = [
-    'Plumber',
-    'Electrician',
-    'Cleaner',
-    'Painter',
-    'Carpenter',
-    'Mechanic',
-    'Gardener',
-    'Tutor',
-  ];
+  final List<String> _categories = LookupData.jobCategories;
 
   final List<String> _urgencyOptions = [
     'Emergency',

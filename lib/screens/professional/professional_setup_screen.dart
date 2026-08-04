@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:telvo/providers/auth_provider.dart';
 import 'package:telvo/config/routes.dart';
+import 'package:telvo/utils/lookup_data.dart';
 import 'package:telvo/widgets/searchable_option_picker.dart';
 import 'package:telvo/widgets/custom_button.dart';
 import 'package:telvo/widgets/custom_text_field.dart';
@@ -31,23 +32,6 @@ class _ProfessionalSetupScreenState extends State<ProfessionalSetupScreen> {
   bool _isLoading = false;
   bool _isUploadingPhoto = false;
 
-  final List<String> _categories = [
-    'Plumber',
-    'Electrician',
-    'Cleaner',
-    'Painter',
-    'Carpenter',
-    'Mechanic',
-    'Gardener',
-    'Tutor',
-    'Photographer',
-    'Chef',
-    'Babysitter',
-    'Nanny',
-    'Caregiver',
-    'Driver',
-    'Security Guard',
-  ];
 
   @override
   void dispose() {
@@ -159,7 +143,7 @@ class _ProfessionalSetupScreenState extends State<ProfessionalSetupScreen> {
                 final selected = await showSearchableOptionPicker(
                   context: context,
                   title: 'Select Category',
-                  options: localJobOptions,
+                  options: LookupData.jobCategories,
                   initialValue: _categoryController.text.isNotEmpty ? _categoryController.text : null,
                 );
                 if (selected != null) {

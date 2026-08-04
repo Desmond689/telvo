@@ -1,5 +1,6 @@
 // lib/screens/customer/home_screen.dart
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 import 'package:telvo/config/routes.dart';
 import 'package:telvo/models/professional_display.dart';
@@ -8,10 +9,11 @@ import 'package:telvo/providers/auth_provider.dart';
 import 'package:telvo/providers/job_provider.dart';
 import 'package:telvo/providers/user_provider.dart';
 import 'package:telvo/utils/app_colors.dart';
+import 'package:telvo/utils/lookup_data.dart';
 import 'package:telvo/widgets/category_card.dart';
 import 'package:telvo/widgets/search_bar.dart';
 import 'package:telvo/widgets/empty_state.dart';
-import 'package:telvo/widgets/professional_card.dart';
+import 'package:telvo/widgets/worker_feed_card.dart';
 import 'package:telvo/widgets/need_help_fast_button.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -23,20 +25,106 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
-  final List<Category> categories = [
-    Category('Plumber', Icons.plumbing_rounded, AppColors.plumbing),
-    Category('Electrician', Icons.electrical_services_rounded, AppColors.electrical),
-    Category('Cleaner', Icons.cleaning_services_rounded, AppColors.cleaning),
-    Category('Painter', Icons.format_paint_rounded, AppColors.painting),
-    Category('More', Icons.more_horiz_rounded, AppColors.offline),
-  ];
+  final List<Category> categories = LookupData.jobCategories
+      .map((name) => Category(
+            name,
+            LookupData.iconForCategory(name),
+            LookupData.colorForCategory(name),
+          ))
+      .toList();
+
+  final ScrollController _scrollController = ScrollController();
+  final List<UserModel> _professionals = [];
+  final Set<String> _loadedProfessionalIds = {};
+  bool _isLoadingInitial = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  bool _hasError = false;
+  String? _errorMessage;
+  QueryDocumentSnapshot<Map<String, dynamic>>? _lastDocument;
 
   @override
   void initState() {
     super.initState();
+    _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<UserProvider>().refreshProfessionals();
+      _loadProfessionalsPage();
     });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients || _isLoadingMore || !_hasMore) {
+      return;
+    }
+    final threshold = 200.0;
+    final position = _scrollController.position;
+    if (position.maxScrollExtent - position.pixels <= threshold) {
+      _loadProfessionalsPage();
+    }
+  }
+
+  Future<void> _loadProfessionalsPage() async {
+    if (_isLoadingMore) {
+      return;
+    }
+
+    setState(() {
+      if (_professionals.isEmpty) {
+        _isLoadingInitial = true;
+      } else {
+        _isLoadingMore = true;
+      }
+      _hasError = false;
+    });
+
+    try {
+      final page = await context.read<UserProvider>().fetchProfessionalsPage(
+            limit: 10,
+            startAfter: _lastDocument,
+          );
+      final newProfessionals = page.professionals.where((professional) {
+        return professional.id != null && !_loadedProfessionalIds.contains(professional.id);
+      }).toList();
+
+      setState(() {
+        _professionals.addAll(newProfessionals);
+        _loadedProfessionalIds.addAll(newProfessionals
+            .where((professional) => professional.id != null)
+            .map((professional) => professional.id!));
+        _lastDocument = page.lastDocument;
+        _hasMore = page.hasMore;
+      });
+    } catch (error) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = error.toString();
+      });
+    } finally {
+      setState(() {
+        _isLoadingInitial = false;
+        _isLoadingMore = false;
+      });
+    }
+  }
+
+  Future<void> _refreshHome() async {
+    setState(() {
+      _professionals.clear();
+      _loadedProfessionalIds.clear();
+      _lastDocument = null;
+      _hasMore = true;
+      _errorMessage = null;
+      _hasError = false;
+      _isLoadingInitial = true;
+    });
+    await _loadProfessionalsPage();
   }
 
   @override
@@ -53,19 +141,19 @@ class _HomeScreenState extends State<HomeScreen> {
             const CustomSearchBar(),
             const SizedBox(height: 16),
             Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    _buildCategories(),
-                    const SizedBox(height: 24),
-                    _buildNeedHelpFast(),
-                    const SizedBox(height: 24),
-                    _buildActionButtons(),
-                    const SizedBox(height: 24),
-                    _buildTopProfessionals(),
-                    const SizedBox(height: 80),
-                  ],
-                ),
+              child: ListView(
+                controller: _scrollController,
+                padding: EdgeInsets.zero,
+                children: [
+                  _buildCategories(),
+                  const SizedBox(height: 24),
+                  _buildNeedHelpFast(),
+                  const SizedBox(height: 24),
+                  _buildActionButtons(),
+                  const SizedBox(height: 24),
+                  _buildWorkerFeed(),
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
           ],
@@ -281,9 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ),
   );
 
-  Widget _buildTopProfessionals() {
-    final userProvider = context.watch<UserProvider>();
-
+  Widget _buildWorkerFeed() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -293,7 +379,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Top Professionals',
+                'Recommended Workers',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.w700,
@@ -311,73 +397,84 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 8),
-        StreamBuilder<List<UserModel>>(
-          stream: userProvider.getProfessionals(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(
-                  child: CircularProgressIndicator(strokeWidth: 3),
-                ),
-              );
-            }
-
-            if (snapshot.hasError) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: EmptyState(
-                  title: 'Unable to load professionals',
-                  subtitle: 'Please check your connection and refresh.',
-                  imagePath: 'assets/images/no_connection.png',
-                ),
-              );
-            }
-
-            final topProfessionals = (snapshot.data ?? []).take(6).toList();
-
-            if (topProfessionals.isEmpty) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: EmptyState(
-                  title: 'No verified professionals yet',
-                  subtitle: 'Check back later or search for services now.',
-                  imagePath: 'assets/images/empty_state.png',
-                ),
-              );
-            }
-
-            return SizedBox(
-              height: 210,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                itemCount: topProfessionals.length,
-                itemBuilder: (context, index) {
-                  final professional = topProfessionals[index];
-                  return ProfessionalCard(
-                    professional: Professional(
-                      name: professional.fullName ?? 'Unknown',
-                      title: professional.category ?? 'Professional',
-                      rating: professional.rating ?? 0,
-                      jobs: professional.jobsCompleted ?? 0,
-                      verified: professional.isVerified,
-                      photoUrl: professional.profilePhoto,
-                    ),
-                    onTap: () {
+        const SizedBox(height: 12),
+        if (_hasError)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: EmptyState(
+              title: 'Unable to load professionals',
+              subtitle: _errorMessage ?? 'Please check your connection and refresh.',
+              imagePath: 'assets/images/no_connection.png',
+            ),
+          )
+        else if (_isLoadingInitial)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: CircularProgressIndicator(strokeWidth: 3),
+            ),
+          )
+        else if (_professionals.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: EmptyState(
+              title: 'No professionals found',
+              subtitle: 'Try searching for a service or refresh the home feed.',
+              imagePath: 'assets/images/empty_state.png',
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                for (final professional in _professionals)
+                  WorkerFeedCard(
+                    professional: professional,
+                    onPhotoTap: () {
                       Navigator.pushNamed(
                         context,
                         AppRoutes.professionalProfile,
                         arguments: professional,
                       );
                     },
-                  );
-                },
-              ),
-            );
-          },
-        ),
+                    onViewProfile: () {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.professionalProfile,
+                        arguments: professional,
+                      );
+                    },
+                    onHireNow: () {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.jobPost,
+                        arguments: professional.id,
+                      );
+                    },
+                  ),
+                if (_isLoadingMore)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(
+                      child: CircularProgressIndicator(strokeWidth: 3),
+                    ),
+                  ),
+                if (!_hasMore && _professionals.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Center(
+                      child: Text(
+                        'You have reached the end of the list.',
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
       ],
     );
   }
@@ -386,16 +483,9 @@ class _HomeScreenState extends State<HomeScreen> {
     selectedIndex: _selectedIndex,
     onDestinationSelected: (index) async {
       if (_selectedIndex == index && index == 0) {
-        final userProvider = context.read<UserProvider>();
-        final jobProvider = context.read<JobProvider>();
-        await Future.wait([
-          userProvider.refreshProfessionals(),
-          jobProvider.refreshJobs(),
-        ]);
+        await _refreshHome();
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Home refreshed')));
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Home refreshed')));
         }
         return;
       }

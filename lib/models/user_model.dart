@@ -37,6 +37,7 @@ class UserModel {
     this.availabilitySchedule,
     this.availabilityStatus,
     this.emergencyServices = false,
+    this.startingPrice,
     this.rating,
     this.jobsCompleted,
     this.responseRate,
@@ -76,11 +77,12 @@ class UserModel {
       yearsOfExperience: map['yearsOfExperience'],
       description: map['description'],
       serviceAreas: List<String>.from(map['serviceAreas'] ?? []),
-      availabilityStatus: map['availabilityStatus'],
       portfolioPhotos: List<String>.from(map['portfolioPhotos'] ?? []),
       certificates: List<String>.from(map['certificates'] ?? []),
       availabilitySchedule: map['availabilitySchedule'],
+      availabilityStatus: map['availabilityStatus'],
       emergencyServices: map['emergencyServices'] ?? false,
+      startingPrice: map['startingPrice']?.toDouble(),
       rating: map['rating']?.toDouble(),
       jobsCompleted: map['jobsCompleted'],
       responseRate: map['responseRate']?.toDouble(),
@@ -126,6 +128,7 @@ class UserModel {
   final List<String>? certificates;
   final Map<String, dynamic>? availabilitySchedule;
   final bool emergencyServices;
+  final double? startingPrice;
   final double? rating;
   final int? jobsCompleted;
   final double? responseRate;
@@ -169,6 +172,7 @@ class UserModel {
     'availabilitySchedule': availabilitySchedule,
     'availabilityStatus': availabilityStatus,
     'emergencyServices': emergencyServices,
+    'startingPrice': startingPrice,
     'rating': rating,
     'jobsCompleted': jobsCompleted,
     'responseRate': responseRate,
@@ -212,6 +216,7 @@ class UserModel {
     Map<String, dynamic>? availabilitySchedule,
     String? availabilityStatus,
     bool? emergencyServices,
+    double? startingPrice,
     double? rating,
     int? jobsCompleted,
     double? responseRate,
@@ -253,6 +258,7 @@ class UserModel {
     availabilitySchedule: availabilitySchedule ?? this.availabilitySchedule,
     availabilityStatus: availabilityStatus ?? this.availabilityStatus,
     emergencyServices: emergencyServices ?? this.emergencyServices,
+    startingPrice: startingPrice ?? this.startingPrice,
     rating: rating ?? this.rating,
     jobsCompleted: jobsCompleted ?? this.jobsCompleted,
     responseRate: responseRate ?? this.responseRate,

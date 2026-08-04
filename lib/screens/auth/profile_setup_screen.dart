@@ -7,6 +7,7 @@ import 'package:telvo/providers/auth_provider.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:telvo/utils/geo.dart';
 import 'package:telvo/config/routes.dart';
+import 'package:telvo/utils/lookup_data.dart';
 import 'package:telvo/widgets/custom_button.dart';
 import 'package:telvo/widgets/custom_text_field.dart';
 import 'package:telvo/widgets/searchable_option_picker.dart';
@@ -280,7 +281,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 final selected = await showSearchableOptionPicker(
                   context: context,
                   title: 'Select City',
-                  options: cameroonCityOptions,
+                  options: LookupData.supportedCities,
                   initialValue: _cityController.text.isNotEmpty
                       ? _cityController.text
                       : null,

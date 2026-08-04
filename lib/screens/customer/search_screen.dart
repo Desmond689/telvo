@@ -5,9 +5,11 @@ import 'package:telvo/models/professional_display.dart';
 import 'package:telvo/models/user_model.dart';
 import 'package:telvo/providers/user_provider.dart';
 import 'package:telvo/utils/app_colors.dart';
+import 'package:telvo/utils/lookup_data.dart';
 import 'package:telvo/widgets/empty_state.dart';
 import 'package:telvo/widgets/professional_card.dart';
 import 'package:telvo/widgets/custom_text_field.dart';
+import 'package:telvo/widgets/searchable_option_picker.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -18,43 +20,21 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _minPriceController = TextEditingController();
+  final TextEditingController _maxPriceController = TextEditingController();
   String _selectedCategory = 'All';
+  String _selectedCity = 'All';
+  String _selectedAvailabilityStatus = 'All';
   String _searchText = '';
-
-  final List<String> _categories = [
-    'All',
-    'Plumber',
-    'Electrician',
-    'Cleaner',
-    'Painter',
-    'Carpenter',
-    'Mechanic',
-    'Gardener',
-    'Tutor',
-    'Photographer',
-    'Chef',
-    'Babysitter',
-  ];
-
-  final List<String> _filters = [
-    'Nearest',
-    'Highest Rated',
-    'Cheapest',
-    'Fastest Response',
-    'Verified Only',
-    'Available Today',
-  ];
-
-  // Distance and pricing aren't tracked on the user profile yet (no geo
-  // coordinates, no rate field), so those two filters can't actually do
-  // anything real right now - better to say so than to silently no-op.
-  static const Set<String> _unavailableFilters = {'Nearest', 'Cheapest'};
-
-  String? _selectedFilter;
+  double _minRating = 0;
+  bool _verifiedOnly = false;
+  bool _availableOnly = false;
 
   @override
   void dispose() {
     _searchController.dispose();
+    _minPriceController.dispose();
+    _maxPriceController.dispose();
     super.dispose();
   }
 
@@ -77,66 +57,75 @@ class _SearchScreenState extends State<SearchScreen> {
     }).toList();
   }
 
-  List<UserModel> _applySort(List<UserModel> professionals) {
-    final result = List<UserModel>.from(professionals);
-    switch (_selectedFilter) {
-      case 'Highest Rated':
-        result.sort((a, b) => (b.rating ?? 0).compareTo(a.rating ?? 0));
-        break;
-      case 'Fastest Response':
-        result.sort(
-          (a, b) =>
-              (a.responseTime ?? 1 << 30).compareTo(b.responseTime ?? 1 << 30),
-        );
-        break;
-      case 'Verified Only':
-        result.retainWhere((p) => p.isVerified);
-        break;
-      case 'Available Today':
-        final today = const [
-          'Mon',
-          'Tue',
-          'Wed',
-          'Thu',
-          'Fri',
-          'Sat',
-          'Sun',
-        ][DateTime.now().weekday - 1];
-        result.retainWhere((p) {
-          final slots = p.availabilitySchedule?[today];
-          if (slots is Map) {
-            return slots.values.any((available) => available == true);
-          }
-          return false;
-        });
-        break;
-      default:
-        break;
-    }
-    return result;
+  void _resetFilters() {
+    setState(() {
+      _selectedCategory = 'All';
+      _selectedCity = 'All';
+      _selectedAvailabilityStatus = 'All';
+      _minRating = 0;
+      _verifiedOnly = false;
+      _availableOnly = false;
+      _minPriceController.clear();
+      _maxPriceController.clear();
+    });
   }
 
-  void _onFilterTap(String filter) {
-    if (_unavailableFilters.contains(filter)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '$filter isn\'t available yet - it needs location/pricing '
-            'data we don\'t collect from professionals yet.',
-          ),
-        ),
-      );
-      return;
+  Future<void> _selectCategory() async {
+    final selected = await showSearchableOptionPicker(
+      context: context,
+      title: 'Select Category',
+      options: ['All', ...LookupData.jobCategories],
+      initialValue: _selectedCategory != 'All' ? _selectedCategory : null,
+    );
+    if (selected != null) {
+      setState(() {
+        _selectedCategory = selected;
+      });
     }
-    setState(() {
-      _selectedFilter = _selectedFilter == filter ? null : filter;
-    });
+  }
+
+  Future<void> _selectCity() async {
+    final selected = await showSearchableOptionPicker(
+      context: context,
+      title: 'Select City',
+      options: ['All', ...LookupData.supportedCities],
+      initialValue: _selectedCity != 'All' ? _selectedCity : null,
+    );
+    if (selected != null) {
+      setState(() {
+        _selectedCity = selected;
+      });
+    }
+  }
+
+  Future<void> _selectAvailabilityStatus() async {
+    final selected = await showSearchableOptionPicker(
+      context: context,
+      title: 'Select Availability',
+      options: const ['All', 'Online', 'Offline'],
+      initialValue: _selectedAvailabilityStatus != 'All' ? _selectedAvailabilityStatus : null,
+    );
+    if (selected != null) {
+      setState(() {
+        _selectedAvailabilityStatus = selected;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final userProvider = context.read<UserProvider>();
     final category = _selectedCategory == 'All' ? null : _selectedCategory;
+    final city = _selectedCity == 'All' ? null : _selectedCity;
+    final minPrice = _minPriceController.text.trim().isNotEmpty
+        ? double.tryParse(_minPriceController.text.trim())
+        : null;
+    final maxPrice = _maxPriceController.text.trim().isNotEmpty
+        ? double.tryParse(_maxPriceController.text.trim())
+        : null;
+    final availabilityStatus = _selectedAvailabilityStatus == 'All'
+        ? null
+        : _selectedAvailabilityStatus;
 
     return Scaffold(
       body: SafeArea(
@@ -164,94 +153,184 @@ class _SearchScreenState extends State<SearchScreen> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    height: 40,
-                    child: ListView.builder(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _categories.length,
-                      itemBuilder: (context, index) {
-                        final categoryOption = _categories[index];
-                        final isSelected = _selectedCategory == categoryOption;
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: FilterChip(
-                            label: Text(categoryOption),
-                            selected: isSelected,
-                            onSelected: (selected) {
-                              setState(() {
-                                _selectedCategory = selected
-                                    ? categoryOption
-                                    : 'All';
-                              });
-                            },
-                            selectedColor: AppColors.primary,
-                            checkmarkColor: Colors.white,
-                            labelStyle: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: isSelected
-                                  ? Colors.white
-                                  : Theme.of(context).colorScheme.onSurface,
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: _selectCategory,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surface,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _selectedCategory,
+                                          style: TextStyle(
+                                            color: Theme.of(context).colorScheme.onSurface,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const Icon(Icons.keyboard_arrow_down_rounded),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: _selectCity,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.surface,
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          _selectedCity,
+                                          style: TextStyle(
+                                            color: Theme.of(context).colorScheme.onSurface,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const Icon(Icons.keyboard_arrow_down_rounded),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CustomTextField(
+                                controller: _minPriceController,
+                                hintText: 'Min price',
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: CustomTextField(
+                                controller: _maxPriceController,
+                                hintText: 'Max price',
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        GestureDetector(
+                          onTap: _selectAvailabilityStatus,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.surface,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _selectedAvailabilityStatus,
+                                    style: TextStyle(
+                                      color: Theme.of(context).colorScheme.onSurface,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const Icon(Icons.keyboard_arrow_down_rounded),
+                              ],
                             ),
                           ),
-                        );
-                      },
+                        ),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            _buildFilterButton(
+                              label: 'Verified Only',
+                              selected: _verifiedOnly,
+                              onTap: () => setState(() => _verifiedOnly = !_verifiedOnly),
+                            ),
+                            _buildFilterButton(
+                              label: 'Available Now',
+                              selected: _availableOnly,
+                              onTap: () => setState(() => _availableOnly = !_availableOnly),
+                            ),
+                            _buildFilterButton(
+                              label: '4+ Stars',
+                              selected: _minRating >= 4,
+                              onTap: () {
+                                setState(() {
+                                  _minRating = _minRating >= 4 ? 0 : 4;
+                                });
+                              },
+                            ),
+                            OutlinedButton(
+                              onPressed: _resetFilters,
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                              ),
+                              child: const Text('Reset Filters'),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
                 ],
-              ),
-            ),
-            Container(
-              height: 44,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              margin: const EdgeInsets.only(bottom: 8),
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _filters.length,
-                itemBuilder: (context, index) {
-                  final filter = _filters[index];
-                  final isUnavailable = _unavailableFilters.contains(filter);
-                  final isSelected = _selectedFilter == filter;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: OutlinedButton(
-                      onPressed: () => _onFilterTap(filter),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        backgroundColor: isSelected ? AppColors.primary : null,
-                        disabledBackgroundColor: Colors.transparent,
-                        foregroundColor: isUnavailable
-                            ? Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.4)
-                            : (isSelected ? Colors.white : AppColors.textSecondary),
-                        side: BorderSide(
-                          color: isSelected
-                              ? AppColors.primary
-                              : Theme.of(context).colorScheme.outlineVariant,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                      ),
-                      child: Text(
-                        filter,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: isSelected
-                              ? FontWeight.w600
-                              : FontWeight.w500,
-                          fontFamily: 'Poppins',
-                        ),
-                      ),
-                    ),
-                  );
-                },
               ),
             ),
             Expanded(
               child: StreamBuilder<List<UserModel>>(
                 // key forces the StreamBuilder to resubscribe to a fresh
                 // stream whenever the category filter changes.
-                key: ValueKey(category),
-                stream: userProvider.getProfessionals(category: category),
+                key: ValueKey([
+                  category,
+                  city,
+                  _verifiedOnly,
+                  _availableOnly,
+                  _minRating,
+                  minPrice,
+                  maxPrice,
+                  availabilityStatus,
+                ]),
+                stream: userProvider.getProfessionals(
+                  category: category,
+                  city: city,
+                  minRating: _minRating > 0 ? _minRating : null,
+                  minPrice: minPrice,
+                  maxPrice: maxPrice,
+                  availabilityStatus: availabilityStatus,
+                  verifiedOnly: _verifiedOnly,
+                  onlineOnly: _availableOnly,
+                ),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
@@ -266,9 +345,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     );
                   }
 
-                  final professionals = _applySort(
-                    _applyTextFilter(snapshot.data ?? []),
-                  );
+                  final professionals = _applyTextFilter(snapshot.data ?? []);
 
                   if (professionals.isEmpty) {
                     return _buildEmptyState();
@@ -307,6 +384,24 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
+  Widget _buildFilterButton({
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      selectedColor: AppColors.primary,
+      checkmarkColor: Colors.white,
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : Theme.of(context).colorScheme.onSurface,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+ 
   Widget _buildEmptyState() => const EmptyState(
     title: 'No professionals found',
     subtitle: 'Try adjusting your search or filters',
