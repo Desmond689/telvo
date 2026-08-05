@@ -57,9 +57,9 @@ class JobModel {
       latitude: map['latitude']?.toDouble(),
       longitude: map['longitude']?.toDouble(),
       geoHash: map['geoHash'],
-      createdAt: map['createdAt']?.toDate(),
-      scheduledDate: map['scheduledDate']?.toDate(),
-      completedDate: map['completedDate']?.toDate(),
+      createdAt: _parseDate(map['createdAt']),
+      scheduledDate: _parseDate(map['scheduledDate']),
+      completedDate: _parseDate(map['completedDate']),
       quotes: map['quotes'] != null
           ? List<QuoteModel>.from(
               map['quotes'].map((q) => QuoteModel.fromMap(q)),
@@ -122,6 +122,7 @@ class JobModel {
     'latitude': latitude,
     'longitude': longitude,
     'geoHash': geoHash,
+    // When writing to Firestore, prefer storing serverTimestamp when createdAt is null
     'createdAt': createdAt,
     'scheduledDate': scheduledDate,
     'completedDate': completedDate,
@@ -196,6 +197,32 @@ class JobModel {
     businessId: businessId ?? this.businessId,
     geoHash: geoHash ?? this.geoHash,
   );
+}
+
+
+DateTime? _parseDate(dynamic value) {
+  if (value == null) return null;
+  try {
+    // Firestore Timestamp
+    if (value is Map && value.containsKey('_seconds')) {
+      // Some platforms may return a map representation
+      final seconds = value['_seconds'] as int? ?? 0;
+      final nanoseconds = value['_nanoseconds'] as int? ?? 0;
+      return DateTime.fromMillisecondsSinceEpoch(seconds * 1000 + (nanoseconds ~/ 1000000));
+    }
+    if (value is DateTime) return value;
+    if (value is int) return DateTime.fromMillisecondsSinceEpoch(value);
+    // Cloud Firestore Timestamp type (from package) has toDate()
+    try {
+      final dynamic v = value;
+      final res = v.toDate();
+      if (res is DateTime) return res;
+    } catch (_) {}
+    if (value is String) {
+      return DateTime.tryParse(value);
+    }
+  } catch (_) {}
+  return null;
 }
 
 class QuoteModel {

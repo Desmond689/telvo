@@ -53,10 +53,24 @@ class JobProvider extends ChangeNotifier {
         .snapshots()
         .listen(
           (snapshot) {
-            _jobs = snapshot.docs
-                .map((doc) => JobModel.fromMap({...doc.data(), 'id': doc.id}))
-                .where((job) => _shouldShowInFeed(job))
-                .toList();
+            final temp = <JobModel>[];
+            for (final doc in snapshot.docs) {
+              try {
+                final job = JobModel.fromMap({...doc.data(), 'id': doc.id});
+                if (_shouldShowInFeed(job)) temp.add(job);
+              } catch (e, st) {
+                // Don't let one malformed document break the whole feed.
+                // Print in debug to aid diagnosis; production will swallow to avoid noisy logs.
+                if (const bool.fromEnvironment('dart.vm.product') == false) {
+                  // ignore: avoid_print
+                  print('Job parsing error for doc ${doc.id}: $e');
+                  // ignore: avoid_print
+                  print(st);
+                }
+                continue;
+              }
+            }
+            _jobs = temp;
             _jobs.sort((a, b) => (b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)).compareTo(a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0)));
             notifyListeners();
           },
