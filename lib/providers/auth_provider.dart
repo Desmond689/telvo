@@ -22,6 +22,9 @@ class AuthProvider extends ChangeNotifier {
   UserModel? _currentUser;
   bool _isLoading = false;
   String? _error;
+  // Subscription to the current user's Firestore document so admin actions
+  // (suspend/reactivate) take effect immediately in the app.
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _userDocSub;
 
   // True once the very first authStateChanges() event has been fully
   // resolved (including the Firestore profile fetch, if signed in). The
@@ -110,11 +113,48 @@ class AuthProvider extends ChangeNotifier {
       } else {
         final doc = await _firestore.collection('users').doc(userId).get();
         if (doc.exists) {
-          _currentUser = UserModel.fromMap(doc.data()!);
-          await _updateOnlineStatus(true);
-          await NotificationService().registerToken(userId);
-        }
-        _setError(null);
+            final data = doc.data()!;
+            // If the account has been suspended by an admin, immediately sign out
+            if (data['isSuspended'] == true) {
+              // Ensure any local session is cleared
+              await _auth.signOut();
+              await _secureStorage.delete(key: 'userId');
+              _currentUser = null;
+              _setError('Your account has been suspended. Contact support for help.');
+              notifyListeners();
+              return;
+            }
+
+            _currentUser = UserModel.fromMap(data);
+            await _updateOnlineStatus(true);
+            await NotificationService().registerToken(userId);
+
+            // Listen for admin changes to the user's document (suspension/reactivation)
+            try {
+              // Cancel any previous subscription
+              await _userDocSub?.cancel();
+              _userDocSub = _firestore.collection('users').doc(userId).snapshots().listen((snapshot) async {
+                if (!snapshot.exists) return;
+                final d = snapshot.data();
+                if (d == null) return;
+                if (d['isSuspended'] == true) {
+                  // If admin suspended the account while the user was signed in, sign out immediately
+                  await _auth.signOut();
+                  await _secureStorage.delete(key: 'userId');
+                  _currentUser = null;
+                  _setError('Your account has been suspended. Contact support for help.');
+                  notifyListeners();
+                } else {
+                  // Update local cached profile when admins change fields
+                  _currentUser = UserModel.fromMap(d);
+                  notifyListeners();
+                }
+              });
+            } catch (e) {
+              // Non-fatal: subscription failed
+            }
+          }
+          _setError(null);
       }
     } catch (e) {
       _setError(getFriendlyErrorMessage(e));
@@ -561,6 +601,13 @@ class AuthProvider extends ChangeNotifier {
   Future<void> signOut() async {
     try {
       await _updateOnlineStatus(false);
+
+      // Cancel Firestore user doc subscription if present
+      try {
+        await _userDocSub?.cancel();
+        _userDocSub = null;
+      } catch (_) {}
+
       if (_currentUser != null) {
         final userId = _currentUser?.id;
         if (userId != null && userId.isNotEmpty) {

@@ -113,13 +113,37 @@ const updateUser = async (req, res) => {
     }
     
     const allowedFields = ['fullName', 'email', 'isVerified', 'isSuspended', 'userType'];
+    let suspendChange = null;
     for (const field of allowedFields) {
       if (req.body[field] !== undefined) {
+        if (field === 'isSuspended' && req.body[field] !== user.isSuspended) {
+          suspendChange = req.body[field] === true;
+        }
         user[field] = req.body[field];
       }
     }
     
+    // Persist Firestore user doc first
     await user.save();
+
+    // If suspension was toggled, propagate to Firebase Auth and revoke tokens so active sessions are invalidated.
+    if (suspendChange !== null) {
+      try {
+        const { getAuth } = require('../config/firebase');
+        const auth = getAuth();
+        // Update Firebase Auth disabled flag
+        await auth.updateUser(user.id, { disabled: suspendChange });
+
+        // If suspending, revoke refresh tokens to force re-authentication on clients
+        if (suspendChange === true) {
+          await auth.revokeRefreshTokens(user.id);
+        }
+      } catch (err) {
+        // Log but don't fail the request — the Firestore change succeeded.
+        logger.error('Failed to propagate suspension to Firebase Auth:', err);
+      }
+    }
+
     return successResponse(res, user.toJSON(), 'User updated successfully');
   } catch (error) {
     logger.error('Admin update user error:', error);
