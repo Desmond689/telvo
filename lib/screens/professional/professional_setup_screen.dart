@@ -21,7 +21,7 @@ class _ProfessionalSetupScreenState extends State<ProfessionalSetupScreen> {
   final TextEditingController _categoryController = TextEditingController();
   final TextEditingController _skillsController = TextEditingController();
   final TextEditingController _experienceController = TextEditingController();
-  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
   final TextEditingController _serviceAreaController = TextEditingController();
 
   final List<String> _skills = [];
@@ -38,7 +38,7 @@ class _ProfessionalSetupScreenState extends State<ProfessionalSetupScreen> {
     _categoryController.dispose();
     _skillsController.dispose();
     _experienceController.dispose();
-    _descriptionController.dispose();
+    _bioController.dispose();
     _serviceAreaController.dispose();
     super.dispose();
   }
@@ -82,7 +82,7 @@ class _ProfessionalSetupScreenState extends State<ProfessionalSetupScreen> {
       'category': _categoryController.text,
       'skills': _skills,
       'yearsOfExperience': int.tryParse(_experienceController.text) ?? 0,
-      'description': _descriptionController.text,
+    'bio': _bioController.text,
       'serviceAreas': _serviceAreas,
       'portfolioPhotos': _portfolioPhotos,
       'certificates': _certificates,
@@ -175,12 +175,12 @@ class _ProfessionalSetupScreenState extends State<ProfessionalSetupScreen> {
             ),
             const SizedBox(height: 16),
             CustomTextField(
-              controller: _descriptionController,
-              hintText: 'Description',
+              controller: _bioController,
+              hintText: 'Bio',
               maxLines: 4,
               validator: (value) {
                 if (value == null || value.isEmpty) {
-                  return 'Please enter a description';
+                  return 'Please enter a short bio about your services';
                 }
                 return null;
               },

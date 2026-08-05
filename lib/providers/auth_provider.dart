@@ -373,9 +373,10 @@ class AuthProvider extends ChangeNotifier {
       final yearsOfExperience = data.containsKey('yearsOfExperience')
           ? data['yearsOfExperience'] as int?
           : _currentUser!.yearsOfExperience;
+      // Accept either 'description' or the new 'bio' field from signup/professional setup.
       final description = data.containsKey('description')
           ? data['description'] as String?
-          : _currentUser!.description;
+          : (data.containsKey('bio') ? data['bio'] as String? : _currentUser!.description);
       final serviceAreas = data.containsKey('serviceAreas')
           ? List<String>.from(data['serviceAreas'] ?? [])
           : _currentUser!.serviceAreas;

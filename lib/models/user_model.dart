@@ -75,7 +75,8 @@ class UserModel {
       category: map['category'],
       skills: List<String>.from(map['skills'] ?? []),
       yearsOfExperience: map['yearsOfExperience'],
-      description: map['description'],
+      // Support both 'description' and legacy/new 'bio' field names in Firestore.
+      description: map['description'] ?? map['bio'],
       serviceAreas: List<String>.from(map['serviceAreas'] ?? []),
       portfolioPhotos: List<String>.from(map['portfolioPhotos'] ?? []),
       certificates: List<String>.from(map['certificates'] ?? []),
@@ -171,18 +172,20 @@ class UserModel {
     'skills': skills,
     'yearsOfExperience': yearsOfExperience,
     'description': description,
-    'serviceAreas': serviceAreas,
-    'portfolioPhotos': portfolioPhotos,
-    'certificates': certificates,
-    'availabilitySchedule': availabilitySchedule,
-    'availabilityStatus': availabilityStatus,
-    'emergencyServices': emergencyServices,
-    'startingPrice': startingPrice,
-    'rating': rating,
-    'jobsCompleted': jobsCompleted,
-    'responseRate': responseRate,
-    'responseTime': responseTime,
-  };
+        // Also write a 'bio' alias for any consumers expecting that key.
+        'bio': description,
+        'serviceAreas': serviceAreas,
+        'portfolioPhotos': portfolioPhotos,
+        'certificates': certificates,
+        'availabilitySchedule': availabilitySchedule,
+        'availabilityStatus': availabilityStatus,
+        'emergencyServices': emergencyServices,
+        'startingPrice': startingPrice,
+        'rating': rating,
+        'jobsCompleted': jobsCompleted,
+        'responseRate': responseRate,
+        'responseTime': responseTime,
+      };
 
   UserModel copyWith({
     String? id,
