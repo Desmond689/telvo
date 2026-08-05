@@ -15,6 +15,46 @@ jobs:
         with:
           submodules: false
 
+      - name: Verify Cloudinary Configuration
+        shell: bash
+        env:
+          CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
+          CLOUDINARY_UPLOAD_PRESET: ${{ secrets.CLOUDINARY_UPLOAD_PRESET }}
+        run: |
+          set -euo pipefail
+          missing=()
+
+          # Check if the values were provided as repository secrets
+          if [ -z "${CLOUDINARY_CLOUD_NAME:-}" ]; then
+            # Try falling back to .env.example values (CI usually copies .env from secrets)
+            if [ -f .env ] && grep -q '^CLOUDINARY_CLOUD_NAME=' .env && ! grep -q "^CLOUDINARY_CLOUD_NAME=your_" .env; then
+              : # ok: .env has value
+            else
+              missing+=('CLOUDINARY_CLOUD_NAME')
+            fi
+          fi
+
+          if [ -z "${CLOUDINARY_UPLOAD_PRESET:-}" ]; then
+            if [ -f .env ] && grep -q '^CLOUDINARY_UPLOAD_PRESET=' .env && ! grep -q "^CLOUDINARY_UPLOAD_PRESET=your_" .env; then
+              :
+            else
+              missing+=('CLOUDINARY_UPLOAD_PRESET')
+            fi
+          fi
+
+          if [ ${#missing[@]} -ne 0 ]; then
+            echo "::error title=Cloudinary configuration::Missing Cloudinary configuration: ${missing[*]}"
+            echo "The build requires Cloudinary configuration for unsigned uploads."
+            echo "Please add the following repository secrets in GitHub:"
+            echo "  - CLOUDINARY_CLOUD_NAME (your Cloudinary cloud name)"
+            echo "  - CLOUDINARY_UPLOAD_PRESET (an unsigned upload preset name)"
+            echo "Or ensure a .env file (from secrets or CI) contains valid values (replace the 'your_...' placeholders in .env.example)."
+            echo "See README.md -> 'Cloudinary configuration for CI' for detailed setup steps."
+            exit 1
+          fi
+
+          echo "Cloudinary configuration present. Continuing build."
+
       - name: Install Flutter SDK (pinned)
         run: |
           set -e
