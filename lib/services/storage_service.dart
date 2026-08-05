@@ -45,12 +45,23 @@ class StorageService {
         final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
         final body = await streamedResponse.stream.bytesToString();
         if (streamedResponse.statusCode < 200 || streamedResponse.statusCode >= 300) {
-          throw Exception('Cloudinary upload failed: $body');
+          if (const bool.fromEnvironment('dart.vm.product') == false) {
+            // ignore: avoid_print
+            print('Cloudinary upload HTTP ${streamedResponse.statusCode}: $body');
+            print('Upload URL: https://api.cloudinary.com/v1_1/$cloudName/image/upload');
+            print('Upload preset: $uploadPreset');
+            print('Folder: $folder, fileName: $fileName');
+          }
+          throw Exception('Cloudinary upload failed: ${streamedResponse.statusCode}');
         }
 
         final json = jsonDecode(body) as Map<String, dynamic>;
         final url = json['secure_url'] as String?;
         if (url == null || url.isEmpty) {
+          if (const bool.fromEnvironment('dart.vm.product') == false) {
+            // ignore: avoid_print
+            print('Cloudinary response but no secure_url: $body');
+          }
           throw Exception('Cloudinary returned no secure URL');
         }
         return url;
@@ -61,6 +72,7 @@ class StorageService {
           if (const bool.fromEnvironment('dart.vm.product') == false) {
             // ignore: avoid_print
             print('Cloudinary upload failed after $attempt attempts: $e');
+            print('Attempted upload to https://api.cloudinary.com/v1_1/$cloudName/image/upload with preset $uploadPreset');
           }
           throw Exception(message);
         }
