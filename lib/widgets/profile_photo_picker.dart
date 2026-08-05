@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:telvo/services/storage_service.dart';
+import 'package:telvo/utils/error_messages.dart';
 
 class ProfilePhotoPicker extends StatefulWidget {
   final Future<String?> Function(String filePath)? onPhotoSelected;
@@ -64,31 +65,45 @@ class _ProfilePhotoPickerState extends State<ProfilePhotoPicker> {
         _isLoading = true;
       });
 
-      // Upload directly to Firebase Storage.
-      final url = await StorageService().uploadFileDirect(
-        file: File(image.path),
-        folder: 'profile_photos',
-        fileName:
-            '${widget.userId ?? 'user'}_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
+      String? uploadedUrl;
+      try {
+        if (widget.onPhotoSelected != null) {
+          // Let the parent handle uploading (recommended). Parent should return the uploaded URL.
+          uploadedUrl = await widget.onPhotoSelected!(image.path);
+        } else {
+          // Fallback: upload directly using StorageService for backward compatibility.
+          uploadedUrl = await StorageService().uploadFileDirect(
+            file: File(image.path),
+            folder: 'profile_photos',
+            fileName:
+                '${widget.userId ?? 'user'}_${DateTime.now().millisecondsSinceEpoch}.jpg',
+          );
+        }
+      } catch (e) {
+        uploadedUrl = null;
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Photo upload failed: ${getFriendlyErrorMessage(e)}')),
+        );
+      }
 
       if (!mounted) return;
 
-      if (url != null && url.isNotEmpty) {
+      if (uploadedUrl != null && uploadedUrl.isNotEmpty) {
         setState(() {
-          _photoUrl = url;
+          _photoUrl = uploadedUrl;
           _isLoading = false;
         });
-        if (widget.onPhotoSelected != null) {
-          await widget.onPhotoSelected!(image.path);
-        }
       } else {
+        // Keep the local preview but stop loading so user can retry
         setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not upload photo. Please try again.'),
-          ),
-        );
+        if (widget.onPhotoSelected == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not upload photo. Please try again.'),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (!mounted) return;

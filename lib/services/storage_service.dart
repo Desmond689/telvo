@@ -22,32 +22,53 @@ class StorageService {
       );
     }
 
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload'),
-    );
-    request.fields['upload_preset'] = uploadPreset;
-    request.fields['folder'] = folder;
-    request.files.add(
-      await http.MultipartFile.fromPath(
-        'file',
-        file.path,
-        filename: fileName,
-      ),
-    );
+    const int maxAttempts = 3;
+    int attempt = 0;
+    while (true) {
+      attempt++;
+      try {
+        final request = http.MultipartRequest(
+          'POST',
+          Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload'),
+        );
+        request.fields['upload_preset'] = uploadPreset;
+        request.fields['folder'] = folder;
+        request.files.add(
+          await http.MultipartFile.fromPath(
+            'file',
+            file.path,
+            filename: fileName,
+          ),
+        );
 
-    final response = await request.send();
-    final body = await response.stream.bytesToString();
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('Cloudinary upload failed: $body');
-    }
+        // Timeout the upload to avoid hanging indefinitely
+        final streamedResponse = await request.send().timeout(const Duration(seconds: 60));
+        final body = await streamedResponse.stream.bytesToString();
+        if (streamedResponse.statusCode < 200 || streamedResponse.statusCode >= 300) {
+          throw Exception('Cloudinary upload failed: $body');
+        }
 
-    final json = jsonDecode(body) as Map<String, dynamic>;
-    final url = json['secure_url'] as String?;
-    if (url == null || url.isEmpty) {
-      throw Exception('Cloudinary returned no secure URL');
+        final json = jsonDecode(body) as Map<String, dynamic>;
+        final url = json['secure_url'] as String?;
+        if (url == null || url.isEmpty) {
+          throw Exception('Cloudinary returned no secure URL');
+        }
+        return url;
+      } catch (e) {
+        // If last attempt, rethrow a detailed error. Otherwise, wait and retry.
+        if (attempt >= maxAttempts) {
+          final message = getFriendlyErrorMessage(e);
+          if (const bool.fromEnvironment('dart.vm.product') == false) {
+            // ignore: avoid_print
+            print('Cloudinary upload failed after $attempt attempts: $e');
+          }
+          throw Exception(message);
+        }
+        // Exponential backoff before retrying
+        final backoff = Duration(seconds: 1 << (attempt - 1));
+        await Future.delayed(backoff);
+      }
     }
-    return url;
   }
 
   Future<String?> uploadFileDirect({
@@ -98,7 +119,12 @@ class StorageService {
         folder: 'job_photos/$jobId',
         fileName: '$index.jpg',
       );
-    } catch (_) {
+    } catch (e) {
+      final msg = getFriendlyErrorMessage(e);
+      if (const bool.fromEnvironment('dart.vm.product') == false) {
+        // ignore: avoid_print
+        print('uploadJobPhoto error: $e');
+      }
       return null;
     }
   }
@@ -125,7 +151,12 @@ class StorageService {
         folder: 'portfolio_photos/$userId',
         fileName: '$index.jpg',
       );
-    } catch (_) {
+    } catch (e) {
+      final msg = getFriendlyErrorMessage(e);
+      if (const bool.fromEnvironment('dart.vm.product') == false) {
+        // ignore: avoid_print
+        print('uploadPortfolioPhoto error: $e');
+      }
       return null;
     }
   }
@@ -139,7 +170,12 @@ class StorageService {
         folder: 'chat_images/$chatId',
         fileName: fileName,
       );
-    } catch (_) {
+    } catch (e) {
+      final msg = getFriendlyErrorMessage(e);
+      if (const bool.fromEnvironment('dart.vm.product') == false) {
+        // ignore: avoid_print
+        print('uploadChatImage error: $e');
+      }
       return null;
     }
   }
