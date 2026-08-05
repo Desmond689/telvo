@@ -30,7 +30,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final hasWorker = _job?.professionalId != null && _job?.professionalId!.isNotEmpty;
+    final hasWorker = _job?.professionalId?.isNotEmpty ?? false;
 
     return Scaffold(
       appBar: AppBar(

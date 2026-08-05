@@ -211,6 +211,10 @@ class UserProvider extends ChangeNotifier {
         _setError(e.toString());
         _setLoading(false);
       }
+    } catch (e) {
+      _setError(e.toString());
+      _setLoading(false);
+    }
   }
 
   Future<ProfessionalPage> fetchProfessionalsPage({
