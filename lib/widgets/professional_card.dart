@@ -150,9 +150,9 @@ class ProfessionalCard extends StatelessWidget {
 
               const SizedBox(width: 12),
 
-              // RIGHT: Hire Now button (vertically centered)
+              // RIGHT: Hire button (vertically centered, compact)
               SizedBox(
-                width: 92,
+                width: 84,
                 child: Center(
                   child: ElevatedButton(
                     onPressed: () {
@@ -162,7 +162,13 @@ class ProfessionalCard extends StatelessWidget {
                         arguments: null, // parent should provide professional id when wiring onTap if needed
                       );
                     },
-                    child: const Text('Hire Now'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      elevation: 0,
+                      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    ),
+                    child: const Text('Hire'),
                   ),
                 ),
               ),

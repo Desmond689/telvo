@@ -146,17 +146,18 @@ class WorkerFeedCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      // Hire Now button — small
+                      // Hire button — compact
                       SizedBox(
-                        height: 36,
+                        height: 34,
                         child: ElevatedButton(
                           onPressed: onHireNow,
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             elevation: 0,
+                            textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                           ),
-                          child: const Text('Hire Now'),
+                          child: const Text('Hire'),
                         ),
                       ),
                     ],
