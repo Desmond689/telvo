@@ -82,7 +82,12 @@ class UserModel {
       availabilitySchedule: map['availabilitySchedule'],
       availabilityStatus: map['availabilityStatus'],
       emergencyServices: map['emergencyServices'] ?? false,
-      startingPrice: map['startingPrice']?.toDouble(),
+      // Support multiple possible price field names used in Firestore documents.
+    // Some records may use 'startingPrice', 'hourlyRate', 'servicePrice' or 'basePrice'.
+    // Prefer the canonical 'startingPrice' if present, otherwise fall back.
+    startingPrice: (map['startingPrice'] ?? map['starting_price'] ?? map['hourlyRate'] ?? map['hourly_rate'] ?? map['servicePrice'] ?? map['service_price'] ?? map['basePrice'] ?? map['base_price']) != null
+        ? ( (map['startingPrice'] ?? map['starting_price'] ?? map['hourlyRate'] ?? map['hourly_rate'] ?? map['servicePrice'] ?? map['service_price'] ?? map['basePrice'] ?? map['base_price']).toDouble() )
+        : null,
       rating: map['rating']?.toDouble(),
       jobsCompleted: map['jobsCompleted'],
       responseRate: map['responseRate']?.toDouble(),

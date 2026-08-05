@@ -101,9 +101,10 @@ class _HistoryScreenState extends State<HistoryScreen>
         return JobCard(
           job: job,
           onTap: () {
-            Navigator.pushNamed(context, AppRoutes.jobTracking, arguments: job);
-          },
-        );
+                    // Open Job Details screen instead of immediately opening tracking.
+                    Navigator.pushNamed(context, AppRoutes.jobDetails, arguments: job);
+                  },
+                );
       },
     );
   }

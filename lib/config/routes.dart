@@ -49,6 +49,7 @@ class AppRoutes {
   static const String professionalProfile = '/professional-profile';
   static const String jobPost = '/job-post';
   static const String jobTracking = '/job-tracking';
+  static const String jobDetails = '/job-details';
   static const String payment = '/payment';
   static const String review = '/review';
   static const String chat = '/chat';

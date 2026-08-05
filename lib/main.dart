@@ -35,6 +35,7 @@ import 'package:telvo/screens/customer/search_screen.dart';
 import 'package:telvo/screens/customer/professional_profile_screen.dart';
 import 'package:telvo/screens/customer/job_post_screen.dart';
 import 'package:telvo/screens/customer/job_tracking_screen.dart';
+import 'package:telvo/screens/customer/job_details_screen.dart';
 import 'package:telvo/screens/customer/payment_screen.dart';
 import 'package:telvo/screens/customer/review_screen.dart';
 import 'package:telvo/screens/customer/favorites_screen.dart';
@@ -235,6 +236,7 @@ class _MyAppState extends State<MyApp> {
                       const ProfessionalProfileScreen(),
                   AppRoutes.jobPost: (context) => const JobPostScreen(),
                   AppRoutes.jobTracking: (context) => const JobTrackingScreen(),
+                  AppRoutes.jobDetails: (context) => const JobDetailsScreen(),
                   AppRoutes.payment: (context) => const PaymentScreen(),
                   AppRoutes.review: (context) => const ReviewScreen(),
                   AppRoutes.favorites: (context) => const FavoritesScreen(),

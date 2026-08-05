@@ -429,30 +429,24 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               children: [
                 for (final professional in _professionals)
-                  WorkerFeedCard(
-                    professional: professional,
-                    onPhotoTap: () {
-                      Navigator.pushNamed(
-                        context,
-                        AppRoutes.professionalProfile,
-                        arguments: professional,
-                      );
-                    },
-                    onViewProfile: () {
-                      Navigator.pushNamed(
-                        context,
-                        AppRoutes.professionalProfile,
-                        arguments: professional,
-                      );
-                    },
-                    onHireNow: () {
-                      Navigator.pushNamed(
-                        context,
-                        AppRoutes.jobPost,
-                        arguments: professional.id,
-                      );
-                    },
-                  ),
+                                  WorkerFeedCard(
+                                    professional: professional,
+                                    onPhotoTap: () {
+                                      // tapping the card opens the professional profile
+                                      Navigator.pushNamed(
+                                        context,
+                                        AppRoutes.professionalProfile,
+                                        arguments: professional,
+                                      );
+                                    },
+                                    onHireNow: () {
+                                      Navigator.pushNamed(
+                                        context,
+                                        AppRoutes.jobPost,
+                                        arguments: professional.id,
+                                      );
+                                    },
+                                  ),
                 if (_isLoadingMore)
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 16),
@@ -503,7 +497,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Navigator.pushNamed(context, AppRoutes.chatList);
           break;
         case 3:
-          Navigator.pushNamed(context, AppRoutes.jobTracking);
+                  Navigator.pushNamed(context, AppRoutes.history);
           break;
         case 4:
           Navigator.pushNamed(context, AppRoutes.profile);

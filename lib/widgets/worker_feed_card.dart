@@ -6,14 +6,13 @@ import 'package:telvo/utils/app_colors.dart';
 class WorkerFeedCard extends StatelessWidget {
   final UserModel professional;
   final VoidCallback onPhotoTap;
-  final VoidCallback onViewProfile;
+  // onViewProfile removed — card is tappable. Keep onHireNow only.
   final VoidCallback onHireNow;
 
   const WorkerFeedCard({
     super.key,
     required this.professional,
     required this.onPhotoTap,
-    required this.onViewProfile,
     required this.onHireNow,
   });
 
@@ -22,203 +21,153 @@ class WorkerFeedCard extends StatelessWidget {
     final theme = Theme.of(context);
     final city = professional.city;
     final previewBio = professional.description?.trim();
-    final badgeColor = professional.isVerified ? AppColors.success : Colors.transparent;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 18,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: onPhotoTap,
-                child: CircleAvatar(
-                  radius: 32,
-                  backgroundColor: theme.colorScheme.surfaceVariant,
-                  backgroundImage: professional.profilePhoto != null
-                      ? NetworkImage(professional.profilePhoto!)
-                      : null,
-                  child: professional.profilePhoto == null
-                      ? Text(
-                          professional.fullName?.substring(0, 1).toUpperCase() ?? 'P',
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textSecondary,
-                          ),
-                        )
-                      : null,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            professional.fullName ?? 'Unknown Professional',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: theme.colorScheme.onSurface,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        if (professional.isVerified)
-                          const Icon(
-                            Icons.verified,
-                            size: 18,
-                            color: AppColors.success,
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      professional.category ?? 'Professional',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        RatingStars(rating: professional.rating ?? 0),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${professional.rating?.toStringAsFixed(1) ?? '0.0'}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          '• ${professional.jobsCompleted ?? 0} jobs',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    if (city != null && city.isNotEmpty)
-                      Row(
-                        children: [
-                          const Icon(
-                            Icons.location_on_outlined,
-                            size: 16,
-                            color: AppColors.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              city,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(alpha: 0.75),
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Text(
-            previewBio?.isNotEmpty == true ? previewBio! : 'No bio available yet.',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withValues(alpha: 0.06),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Row(
+    // Compact horizontal card per design spec
+    return GestureDetector(
+      // Tapping the card (except the Hire button) should open profile — parent should wire onPhotoTap to open profile.
+      onTap: onPhotoTap,
+      child: Container(
+        height: 110,
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.12)),
+        ),
+        child: Row(
+          children: [
+            // Left image — rounded rectangle 72x72
+            Stack(
               children: [
-                const Icon(Icons.attach_money_rounded, size: 16, color: AppColors.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    professional.startingPrice != null
-                        ? 'Starting price: XAF ${professional.startingPrice!.toStringAsFixed(0)}'
-                        : 'Starting price: N/A',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.8),
-                    ),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Container(
+                    width: 72,
+                    height: 72,
+                    color: theme.colorScheme.surfaceVariant,
+                    child: professional.profilePhoto != null
+                        ? Image.network(
+                            professional.profilePhoto!,
+                            width: 72,
+                            height: 72,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Center(
+                              child: Icon(Icons.person_outline, size: 32, color: theme.colorScheme.onSurface.withValues(alpha: 0.4)),
+                            ),
+                          )
+                        : Center(
+                            child: Text(
+                              professional.fullName?.substring(0, 1).toUpperCase() ?? 'P',
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+                              ),
+                            ),
+                          ),
                   ),
                 ),
                 if (professional.isVerified)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: badgeColor.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Verified',
-                      style: theme.textTheme.bodySmall?.copyWith(
+                  Positioned(
+                    right: -4,
+                    bottom: -4,
+                    child: Container(
+                      width: 30,
+                      height: 30,
+                      decoration: BoxDecoration(
                         color: AppColors.success,
-                        fontWeight: FontWeight.w700,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
                       ),
+                      child: const Icon(Icons.check, size: 16, color: Colors.white),
                     ),
                   ),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: onViewProfile,
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: theme.colorScheme.outline),
+            const SizedBox(width: 12),
+            // Right content
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          professional.fullName ?? 'Unknown',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.star, size: 14, color: AppColors.primary),
+                          const SizedBox(width: 4),
+                          Text(
+                            professional.rating != null ? professional.rating!.toStringAsFixed(1) : '-',
+                            style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                  child: const Text('View Profile'),
-                ),
+                  const SizedBox(height: 4),
+                  if (professional.category != null)
+                    Text(
+                      professional.category!,
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.7)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  const SizedBox(height: 6),
+                  if (previewBio?.isNotEmpty == true)
+                    Text(
+                      previewBio!,
+                      style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withValues(alpha: 0.65)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          professional.startingPrice != null
+                              ? 'From CFA ${professional.startingPrice!.toStringAsFixed(0)}'
+                              : 'Price unavailable',
+                          style: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Hire Now button — small
+                      SizedBox(
+                        height: 36,
+                        child: ElevatedButton(
+                          onPressed: onHireNow,
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            elevation: 0,
+                          ),
+                          child: const Text('Hire Now'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton(
-                  onPressed: onHireNow,
-                  child: const Text('Hire Now'),
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
