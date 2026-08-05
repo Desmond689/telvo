@@ -25,6 +25,7 @@ class JobModel {
     this.latitude,
     this.longitude,
     this.createdAt,
+    this.expiresAt,
     this.scheduledDate,
     this.completedDate,
     this.quotes,
@@ -38,6 +39,7 @@ class JobModel {
     this.isRecurring,
     this.recurringFrequency,
     this.businessId,
+    this.professionalName,
   });
 
   factory JobModel.fromMap(Map<String, dynamic> map) {
