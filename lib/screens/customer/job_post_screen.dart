@@ -519,12 +519,20 @@ class _JobPostScreenState extends State<JobPostScreen> {
       }
 
       if (createdJob.id != null && _selectedImages.isNotEmpty) {
-        final photoUrls = await _storageService.uploadJobPhotos(
-          createdJob.id!,
-          _selectedImages,
-        );
-        if (photoUrls.isNotEmpty) {
-          await jobProvider.updateJobPhotos(createdJob.id!, photoUrls);
+        try {
+          final photoUrls = await _storageService.uploadJobPhotos(
+            createdJob.id!,
+            _selectedImages,
+          );
+          if (photoUrls.isNotEmpty) {
+            await jobProvider.updateJobPhotos(createdJob.id!, photoUrls);
+          } else {
+            // No photos uploaded successfully
+            if (mounted) _showError('Job posted, but photo upload failed. You can add photos later.');
+          }
+        } catch (e) {
+          // Don't block job creation — surface a clear error to the user
+          if (mounted) _showError('Job posted, but photos failed: ${getFriendlyErrorMessage(e)}');
         }
       }
 

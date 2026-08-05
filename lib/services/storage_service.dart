@@ -120,18 +120,18 @@ class StorageService {
         fileName: '$index.jpg',
       );
     } catch (e) {
-      final msg = getFriendlyErrorMessage(e);
       if (const bool.fromEnvironment('dart.vm.product') == false) {
         // ignore: avoid_print
-        print('uploadJobPhoto error: $e');
+        print('uploadJobPhoto error (jobId=$jobId, index=$index): $e');
       }
-      return null;
+      throw Exception(getFriendlyErrorMessage(e));
     }
   }
 
   Future<List<String>> uploadJobPhotos(String jobId, List<XFile> images) async {
     final urls = <String>[];
     for (int i = 0; i < images.length; i++) {
+      // uploadJobPhoto now throws on failure — allow the exception to bubble so callers can handle it
       final url = await uploadJobPhoto(jobId, images[i], i);
       if (url != null) {
         urls.add(url);
@@ -152,12 +152,11 @@ class StorageService {
         fileName: '$index.jpg',
       );
     } catch (e) {
-      final msg = getFriendlyErrorMessage(e);
       if (const bool.fromEnvironment('dart.vm.product') == false) {
         // ignore: avoid_print
-        print('uploadPortfolioPhoto error: $e');
+        print('uploadPortfolioPhoto error (userId=$userId, index=$index): $e');
       }
-      return null;
+      throw Exception(getFriendlyErrorMessage(e));
     }
   }
 
@@ -171,12 +170,11 @@ class StorageService {
         fileName: fileName,
       );
     } catch (e) {
-      final msg = getFriendlyErrorMessage(e);
       if (const bool.fromEnvironment('dart.vm.product') == false) {
         // ignore: avoid_print
-        print('uploadChatImage error: $e');
+        print('uploadChatImage error (chatId=$chatId): $e');
       }
-      return null;
+      throw Exception(getFriendlyErrorMessage(e));
     }
   }
 
