@@ -15,15 +15,30 @@ class ReviewsScreen extends StatefulWidget {
 
 class _ReviewsScreenState extends State<ReviewsScreen> {
   late Future<List<ReviewModel>> _reviewsFuture;
+  String? _targetUserId;
 
   @override
   void initState() {
     super.initState();
+    // initState can't access ModalRoute; delay loading until didChangeDependencies
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is String) {
+      _targetUserId = args;
+    } else if (args is Map && args['professionalId'] is String) {
+      _targetUserId = args['professionalId'] as String;
+    } else {
+      _targetUserId = context.read<AuthProvider>().currentUser?.id;
+    }
     _reviewsFuture = _loadReviews();
   }
 
   Future<List<ReviewModel>> _loadReviews() {
-    final userId = context.read<AuthProvider>().currentUser?.id;
+    final userId = _targetUserId;
     if (userId == null) return Future.value(const []);
     return context.read<JobProvider>().fetchReviewsForUser(userId);
   }

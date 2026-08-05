@@ -477,11 +477,37 @@ class _ProfessionalProfileScreenState extends State<ProfessionalProfileScreen> {
                 color: theme.colorScheme.onSurface,
               ),
             ),
-            TextButton(
-              onPressed: () {
-                Navigator.pushNamed(context, AppRoutes.reviews);
-              },
-              child: const Text('See All'),
+            Row(
+              children: [
+                TextButton(
+                  onPressed: () {
+                    // Open the reviews screen for this professional
+                    if (professional.id != null) {
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.reviews,
+                        arguments: professional.id,
+                      );
+                    }
+                  },
+                  child: const Text('See All'),
+                ),
+                const SizedBox(width: 8),
+                if (professional.id != null && context.read<AuthProvider>().currentUser?.id != professional.id)
+                  ElevatedButton(
+                    onPressed: () {
+                      // Navigate to write a review for this professional
+                      Navigator.pushNamed(
+                        context,
+                        AppRoutes.review,
+                        arguments: {
+                          'professionalId': professional.id,
+                        },
+                      );
+                    },
+                    child: const Text('Write Review'),
+                  ),
+              ],
             ),
           ],
         ),
