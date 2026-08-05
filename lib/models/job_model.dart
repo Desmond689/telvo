@@ -58,6 +58,7 @@ class JobModel {
       longitude: map['longitude']?.toDouble(),
       geoHash: map['geoHash'],
       createdAt: _parseDate(map['createdAt']),
+      expiresAt: _parseDate(map['expiresAt']),
       scheduledDate: _parseDate(map['scheduledDate']),
       completedDate: _parseDate(map['completedDate']),
       quotes: map['quotes'] != null
@@ -74,6 +75,7 @@ class JobModel {
       isRecurring: map['isRecurring'] ?? false,
       recurringFrequency: map['recurringFrequency'],
       businessId: map['businessId'],
+      professionalName: map['professionalName'],
     );
   }
   final String? id;
@@ -93,6 +95,7 @@ class JobModel {
   final double? longitude;
   final String? geoHash;
   final DateTime? createdAt;
+  final DateTime? expiresAt;
   final DateTime? scheduledDate;
   final DateTime? completedDate;
   final List<QuoteModel>? quotes;
@@ -105,6 +108,7 @@ class JobModel {
   final bool? isRecurring;
   final int? recurringFrequency;
   final String? businessId;
+  final String? professionalName;
 
   Map<String, dynamic> toMap() => {
     'id': id,
@@ -136,6 +140,8 @@ class JobModel {
     'isRecurring': isRecurring,
     'recurringFrequency': recurringFrequency,
     'businessId': businessId,
+    'expiresAt': expiresAt,
+    'professionalName': professionalName,
   };
 
   JobModel copyWith({
@@ -155,8 +161,9 @@ class JobModel {
     double? longitude,
     String? geoHash,
     DateTime? createdAt,
-    DateTime? scheduledDate,
-    DateTime? completedDate,
+      DateTime? expiresAt,
+      DateTime? scheduledDate,
+      DateTime? completedDate,
     List<QuoteModel>? quotes,
     String? acceptedQuoteId,
     String? paymentMethod,
@@ -167,36 +174,39 @@ class JobModel {
     bool? isRecurring,
     int? recurringFrequency,
     String? businessId,
-  }) => JobModel(
-    id: id ?? this.id,
-    customerId: customerId ?? this.customerId,
-    professionalId: professionalId ?? this.professionalId,
-    category: category ?? this.category,
-    serviceType: serviceType ?? this.serviceType,
-    description: description ?? this.description,
-    photos: photos ?? this.photos,
-    voiceNote: voiceNote ?? this.voiceNote,
-    budget: budget ?? this.budget,
-    urgency: urgency ?? this.urgency,
-    status: status ?? this.status,
-    address: address ?? this.address,
-    latitude: latitude ?? this.latitude,
-    longitude: longitude ?? this.longitude,
-    createdAt: createdAt ?? this.createdAt,
-    scheduledDate: scheduledDate ?? this.scheduledDate,
-    completedDate: completedDate ?? this.completedDate,
-    quotes: quotes ?? this.quotes,
-    acceptedQuoteId: acceptedQuoteId ?? this.acceptedQuoteId,
-    paymentMethod: paymentMethod ?? this.paymentMethod,
-    isPaid: isPaid ?? this.isPaid,
-    finalPrice: finalPrice ?? this.finalPrice,
-    review: review ?? this.review,
-    isEmergency: isEmergency ?? this.isEmergency,
-    isRecurring: isRecurring ?? this.isRecurring,
-    recurringFrequency: recurringFrequency ?? this.recurringFrequency,
-    businessId: businessId ?? this.businessId,
-    geoHash: geoHash ?? this.geoHash,
-  );
+      String? professionalName,
+    }) => JobModel(
+      id: id ?? this.id,
+      customerId: customerId ?? this.customerId,
+      professionalId: professionalId ?? this.professionalId,
+      category: category ?? this.category,
+      serviceType: serviceType ?? this.serviceType,
+      description: description ?? this.description,
+      photos: photos ?? this.photos,
+      voiceNote: voiceNote ?? this.voiceNote,
+      budget: budget ?? this.budget,
+      urgency: urgency ?? this.urgency,
+      status: status ?? this.status,
+      address: address ?? this.address,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      createdAt: createdAt ?? this.createdAt,
+      expiresAt: expiresAt ?? this.expiresAt,
+      scheduledDate: scheduledDate ?? this.scheduledDate,
+      completedDate: completedDate ?? this.completedDate,
+      quotes: quotes ?? this.quotes,
+      acceptedQuoteId: acceptedQuoteId ?? this.acceptedQuoteId,
+      paymentMethod: paymentMethod ?? this.paymentMethod,
+      isPaid: isPaid ?? this.isPaid,
+      finalPrice: finalPrice ?? this.finalPrice,
+      review: review ?? this.review,
+      isEmergency: isEmergency ?? this.isEmergency,
+      isRecurring: isRecurring ?? this.isRecurring,
+      recurringFrequency: recurringFrequency ?? this.recurringFrequency,
+      businessId: businessId ?? this.businessId,
+      geoHash: geoHash ?? this.geoHash,
+      professionalName: professionalName ?? this.professionalName,
+    );
 }
 
 

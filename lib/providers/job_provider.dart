@@ -42,6 +42,15 @@ class JobProvider extends ChangeNotifier {
     if (currentUserId != null && job.customerId == currentUserId) return false;
     if ((job.acceptedQuoteId ?? '').isNotEmpty) return false;
     if ((job.professionalId ?? '').isNotEmpty) return false;
+    // Exclude expired jobs (older than 24 hours)
+    try {
+      final now = DateTime.now();
+      if (job.expiresAt != null) {
+        if (job.expiresAt!.isBefore(now)) return false;
+      } else if (job.createdAt != null) {
+        if (now.difference(job.createdAt!).inHours >= 24) return false;
+      }
+    } catch (_) {}
     return true;
   }
 
@@ -57,7 +66,15 @@ class JobProvider extends ChangeNotifier {
             for (final doc in snapshot.docs) {
               try {
                 final job = JobModel.fromMap({...doc.data(), 'id': doc.id});
-                if (_shouldShowInFeed(job)) temp.add(job);
+                final showInFeed = _shouldShowInFeed(job);
+                if (showInFeed) {
+                  temp.add(job);
+                } else {
+                  if (const bool.fromEnvironment('dart.vm.product') == false) {
+                    // ignore: avoid_print
+                    print('Job ${doc.id} skipped from feed. status=${job.status}, customerId=${job.customerId}, professionalId=${job.professionalId}, acceptedQuoteId=${job.acceptedQuoteId}, category=${job.category}, createdAt=${job.createdAt}');
+                  }
+                }
               } catch (e, st) {
                 // Don't let one malformed document break the whole feed.
                 // Print in debug to aid diagnosis; production will swallow to avoid noisy logs.
@@ -126,11 +143,30 @@ class JobProvider extends ChangeNotifier {
       // ensure Firestore ordering by createdAt works reliably for listeners.
       final data = newJob.toMap();
       data['createdAt'] = FieldValue.serverTimestamp();
+      // Set an expiry 24 hours from now so the client can hide/cleanup old jobs
+      try {
+        data['expiresAt'] = DateTime.now().add(const Duration(hours: 24));
+      } catch (_) {}
       await docRef.set(data);
 
       // Read the document back to get the server timestamp and any transforms
       final createdDoc = await docRef.get();
       final createdJob = JobModel.fromMap({...createdDoc.data() ?? {}, 'id': createdDoc.id});
+
+      // Debug: print created document for diagnosis in non-production
+      if (const bool.fromEnvironment('dart.vm.product') == false) {
+        // ignore: avoid_print
+        print('postJob created doc ${createdDoc.id}: ${createdDoc.data()}');
+      }
+
+      // Optimistically add the created job to the local feed so professionals
+      // see it immediately without waiting for the Firestore snapshot listener.
+      try {
+        final alreadyPresent = _jobs.any((j) => j.id == createdJob.id);
+        if (!alreadyPresent && _shouldShowInFeed(createdJob)) {
+          _jobs.insert(0, createdJob);
+        }
+      } catch (_) {}
 
       // Notify nearby professionals
       await _notificationService.notifyProfessionals(createdJob);
@@ -163,12 +199,56 @@ class JobProvider extends ChangeNotifier {
       _setLoading(true);
       _setError(null);
 
+      // Ensure job still accepts quotes (not already accepted)
+      final jobRef = _firestore.collection('jobs').doc(quote.jobId);
+      final jobDoc = await jobRef.get();
+      if (!jobDoc.exists) {
+        _setError('Job not found');
+        _setLoading(false);
+        return;
+      }
+      final jobData = jobDoc.data() ?? {};
+      final acceptedQuoteId = jobData['acceptedQuoteId'] as String? ?? '';
+      final status = (jobData['status'] as String?)?.toLowerCase() ?? '';
+      // Check expiry
+      final expiryRaw = jobData['expiresAt'];
+      DateTime? expiresAt;
+      try {
+        if (expiryRaw == null) {
+          expiresAt = null;
+        } else if (expiryRaw is DateTime) {
+          expiresAt = expiryRaw as DateTime;
+        } else if (expiryRaw is Map && expiryRaw.containsKey('_seconds')) {
+          final seconds = expiryRaw['_seconds'] as int? ?? 0;
+          final nanoseconds = expiryRaw['_nanoseconds'] as int? ?? 0;
+          expiresAt = DateTime.fromMillisecondsSinceEpoch(seconds * 1000 + (nanoseconds ~/ 1000000));
+        } else {
+          try {
+            // Firestore Timestamp
+            final dynamic v = expiryRaw;
+            final dt = v.toDate();
+            if (dt is DateTime) expiresAt = dt;
+          } catch (_) {
+            if (expiryRaw is String) expiresAt = DateTime.tryParse(expiryRaw);
+          }
+        }
+      } catch (_) { expiresAt = null; }
+      if (expiresAt != null && expiresAt.isBefore(DateTime.now())) {
+        _setError('This job has expired and is no longer accepting quotes.');
+        _setLoading(false);
+        return;
+      }
+      if (acceptedQuoteId.isNotEmpty || status == 'accepted' || status == 'worker_selected') {
+        _setError('This job is no longer accepting quotes.');
+        _setLoading(false);
+        return;
+      }
+
       final docRef = _firestore.collection('quotes').doc();
       final newQuote = quote.copyWith(id: docRef.id, createdAt: DateTime.now());
       await docRef.set(newQuote.toMap());
 
       // Add quote to job and update status
-      final jobRef = _firestore.collection('jobs').doc(quote.jobId);
       await jobRef.update({
         'quotes': FieldValue.arrayUnion([newQuote.toMap()]),
         'status': 'quotes_received',
@@ -198,10 +278,23 @@ class JobProvider extends ChangeNotifier {
           : null;
 
       final jobRef = _firestore.collection('jobs').doc(jobId);
+
+      // Fetch professional info for display
+      String? professionalName;
+      if (professionalId != null && professionalId!.isNotEmpty) {
+        final profDoc = await _firestore.collection('users').doc(professionalId).get();
+        if (profDoc.exists) {
+          professionalName = profDoc.data()?['fullName'] as String?;
+        }
+      }
+
       await jobRef.update({
-        'status': 'worker_selected',
+        'status': 'accepted',
         'acceptedQuoteId': quoteId,
         'professionalId': professionalId,
+        if (professionalName != null) 'professionalName': professionalName,
+        // Set expiry 24 hours after acceptance so UI/backend can cleanup
+        'expiresAt': DateTime.now().add(const Duration(hours: 24)),
       });
 
       // Update the quote status.
@@ -220,22 +313,37 @@ class JobProvider extends ChangeNotifier {
         }
       }
 
-      // Notify professional
+      // Notify accepted professional
       final job = _jobs.firstWhere(
         (j) => j.id == jobId,
         orElse: () => JobModel(),
       );
-      QuoteModel? quote;
+      QuoteModel? selectedQuote;
       if (job.quotes != null) {
         try {
-          quote = job.quotes!.firstWhere((q) => q.id == quoteId);
+          selectedQuote = job.quotes!.firstWhere((q) => q.id == quoteId);
         } catch (_) {
-          quote = null;
+          selectedQuote = null;
         }
       }
-      if (quote != null && quote.jobId != null) {
-        await _notificationService.notifyQuoteAccepted(quote);
+      if (selectedQuote != null && selectedQuote.jobId != null) {
+        await _notificationService.notifyQuoteAccepted(selectedQuote);
       }
+
+      // Optimistically update local job copy so UI shows professionalName/status immediately
+      try {
+        final idx = _jobs.indexWhere((j) => j.id == jobId);
+        if (idx != -1) {
+          final existing = _jobs[idx];
+          final updated = existing.copyWith(
+            status: 'accepted',
+            acceptedQuoteId: quoteId,
+            professionalId: professionalId,
+            professionalName: professionalName,
+          );
+          _jobs[idx] = updated;
+        }
+      } catch (_) {}
 
       _setLoading(false);
       notifyListeners();

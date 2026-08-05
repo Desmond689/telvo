@@ -165,6 +165,38 @@ class JobCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      if (job.createdAt != null) ...[
+                        Text(
+                          _timeAgo(job.createdAt!),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+                            fontFamily: 'Poppins',
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                      ],
+                      if (job.status == 'accepted' && (job.professionalName != null && job.professionalName!.isNotEmpty))
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppColors.success.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            'Assigned to ${job.professionalName}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.success,
+                              fontFamily: 'Poppins',
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
                   Text(
                     job.description ?? 'No description',
                     style: TextStyle(
@@ -295,5 +327,14 @@ class JobCard extends StatelessWidget {
       default:
         return AppColors.offline;
     }
+  }
+
+  String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inHours < 1) return '${diff.inMinutes}m ago';
+    if (diff.inDays < 1) return '${diff.inHours}h ago';
+    if (diff.inDays < 7) return '${diff.inDays}d ago';
+    return '${dt.day}/${dt.month}/${dt.year}';
   }
 }
