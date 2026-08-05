@@ -153,26 +153,64 @@ class UserProvider extends ChangeNotifier {
           .orderBy('lastActive', descending: true)
           .orderBy('createdAt');
 
-      final snapshot = await query.get();
-      final users = snapshot.docs
-          .map((doc) {
-            final user = UserModel.fromMap(doc.data());
-            return user.copyWith(id: doc.id);
-          })
-          .where((user) {
-            if (currentUserId != null && user.id == currentUserId) {
-              return false;
-            }
-            return true;
-          })
-          .toList();
-      _professionals = users;
-      _setLoading(false);
-      notifyListeners();
-    } catch (e) {
-      _setError(e.toString());
-      _setLoading(false);
-    }
+      try {
+        final snapshot = await query.get();
+        final users = snapshot.docs
+            .map((doc) {
+              final user = UserModel.fromMap(doc.data());
+              return user.copyWith(id: doc.id);
+            })
+            .where((user) {
+              if (currentUserId != null && user.id == currentUserId) {
+                return false;
+              }
+              return true;
+            })
+            .toList();
+        _professionals = users;
+        _setLoading(false);
+        notifyListeners();
+      } on FirebaseException catch (e) {
+        final msg = e.message ?? e.toString();
+        if (msg.toLowerCase().contains('requires an index') || e.code == 'failed-precondition') {
+          // Fall back to a simpler query ordering only by rating to avoid composite index requirement.
+          try {
+            Query<Map<String, dynamic>> fallback = _firestore
+                .collection('users')
+                .where('userType', whereIn: ['professional', 'both']);
+
+            if (category != null) fallback = fallback.where('category', isEqualTo: category);
+            if (area != null) fallback = fallback.where('serviceAreas', arrayContains: area);
+            if (city != null) fallback = fallback.where('city', isEqualTo: city);
+            if (verifiedOnly ?? false) fallback = fallback.where('isVerified', isEqualTo: true);
+            if (onlineOnly ?? false) fallback = fallback.where('isOnline', isEqualTo: true);
+            if (availabilityStatus != null && availabilityStatus.isNotEmpty) fallback = fallback.where('availabilityStatus', isEqualTo: availabilityStatus);
+            if (minRating != null) fallback = fallback.where('rating', isGreaterThanOrEqualTo: minRating);
+            if (minPrice != null) fallback = fallback.where('startingPrice', isGreaterThanOrEqualTo: minPrice);
+            if (maxPrice != null) fallback = fallback.where('startingPrice', isLessThanOrEqualTo: maxPrice);
+
+            final snap2 = await fallback.orderBy('rating', descending: true).get();
+            final users2 = snap2.docs
+                .map((doc) => UserModel.fromMap(doc.data()).copyWith(id: doc.id))
+                .where((user) => !(currentUserId != null && user.id == currentUserId))
+                .toList();
+            _professionals = users2;
+            _setError('Some advanced sorting requires a Firestore composite index. Showing a simplified result sorted by rating.');
+            _setLoading(false);
+            notifyListeners();
+            return;
+          } catch (e2) {
+            _setError(e2.toString());
+            _setLoading(false);
+            return;
+          }
+        }
+        _setError(e.toString());
+        _setLoading(false);
+      } catch (e) {
+        _setError(e.toString());
+        _setLoading(false);
+      }
   }
 
   Future<ProfessionalPage> fetchProfessionalsPage({
@@ -233,33 +271,85 @@ class UserProvider extends ChangeNotifier {
       query = query.startAfterDocument(startAfter);
     }
 
-    final snapshot = await query.get();
-    final workers = snapshot.docs
-        .map((doc) {
-          final user = UserModel.fromMap(doc.data());
-          return user.copyWith(id: doc.id);
-        })
-        .where((user) {
-          if (currentUserId != null && user.id == currentUserId) {
-            return false;
-          }
-          return true;
-        })
-        .toList();
+    try {
+      final snapshot = await query.get();
+      final workers = snapshot.docs
+          .map((doc) {
+            final user = UserModel.fromMap(doc.data());
+            return user.copyWith(id: doc.id);
+          })
+          .where((user) {
+            if (currentUserId != null && user.id == currentUserId) {
+              return false;
+            }
+            return true;
+          })
+          .toList();
 
-    final lastDocument = snapshot.docs.isNotEmpty ? snapshot.docs.last : null;
-    final deduped = <String, UserModel>{};
-    for (var professional in workers) {
-      if (professional.id != null) {
-        deduped[professional.id!] = professional;
+      final lastDocument = snapshot.docs.isNotEmpty ? snapshot.docs.last : null;
+      final deduped = <String, UserModel>{};
+      for (var professional in workers) {
+        if (professional.id != null) {
+          deduped[professional.id!] = professional;
+        }
       }
-    }
 
-    return ProfessionalPage(
-      professionals: deduped.values.toList(),
-      lastDocument: lastDocument,
-      hasMore: snapshot.docs.length == limit,
-    );
+      return ProfessionalPage(
+        professionals: deduped.values.toList(),
+        lastDocument: lastDocument,
+        hasMore: snapshot.docs.length == limit,
+      );
+    } on FirebaseException catch (e) {
+      // Firestore often requires a composite index for complex orderBy combinations.
+      final msg = e.message ?? e.toString();
+      if (msg.toLowerCase().contains('requires an index') || e.code == 'failed-precondition') {
+        // Fallback: run a simpler query ordering only by rating to avoid index requirements.
+        try {
+          Query<Map<String, dynamic>> fallback = _firestore
+              .collection('users')
+              .where('userType', whereIn: ['professional', 'both']);
+
+          if (category != null) fallback = fallback.where('category', isEqualTo: category);
+          if (area != null) fallback = fallback.where('serviceAreas', arrayContains: area);
+          if (city != null) fallback = fallback.where('city', isEqualTo: city);
+          if (verifiedOnly ?? false) fallback = fallback.where('isVerified', isEqualTo: true);
+          if (onlineOnly ?? false) fallback = fallback.where('isOnline', isEqualTo: true);
+          if (availabilityStatus != null && availabilityStatus.isNotEmpty) fallback = fallback.where('availabilityStatus', isEqualTo: availabilityStatus);
+          if (minRating != null) fallback = fallback.where('rating', isGreaterThanOrEqualTo: minRating);
+          if (minPrice != null) fallback = fallback.where('startingPrice', isGreaterThanOrEqualTo: minPrice);
+          if (maxPrice != null) fallback = fallback.where('startingPrice', isLessThanOrEqualTo: maxPrice);
+
+          fallback = fallback.orderBy('rating', descending: true).limit(limit);
+          if (startAfter != null) fallback = fallback.startAfterDocument(startAfter);
+
+          final snap2 = await fallback.get();
+          final workers2 = snap2.docs
+              .map((doc) => UserModel.fromMap(doc.data()).copyWith(id: doc.id))
+              .where((user) => !(currentUserId != null && user.id == currentUserId))
+              .toList();
+
+          final lastDoc2 = snap2.docs.isNotEmpty ? snap2.docs.last : null;
+          final deduped2 = <String, UserModel>{};
+          for (var p in workers2) {
+            if (p.id != null) deduped2[p.id!] = p;
+          }
+
+          // Surface a helpful error so the UI can show a link to create the index if desired.
+          _setError('A faster professional query is available but requires a Firestore composite index. Showing a simplified result sorted by rating. To remove this message, create the composite index shown in the Firebase console error logs.');
+
+          return ProfessionalPage(
+            professionals: deduped2.values.toList(),
+            lastDocument: lastDoc2,
+            hasMore: snap2.docs.length == limit,
+          );
+        } catch (e2) {
+          rethrow;
+        }
+      }
+      rethrow;
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<void> getProfessionalDetails(String userId) async {
