@@ -10,6 +10,7 @@ import 'package:telvo/widgets/empty_state.dart';
 import 'package:telvo/widgets/professional_card.dart';
 import 'package:telvo/widgets/custom_text_field.dart';
 import 'package:telvo/widgets/searchable_option_picker.dart';
+import 'package:telvo/utils/helpers.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
