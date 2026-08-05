@@ -122,14 +122,22 @@ class JobProvider extends ChangeNotifier {
         createdAt: DateTime.now(),
       );
 
-      await docRef.set(newJob.toMap());
+      // Use server timestamp for createdAt to avoid client clock issues and
+      // ensure Firestore ordering by createdAt works reliably for listeners.
+      final data = newJob.toMap();
+      data['createdAt'] = FieldValue.serverTimestamp();
+      await docRef.set(data);
+
+      // Read the document back to get the server timestamp and any transforms
+      final createdDoc = await docRef.get();
+      final createdJob = JobModel.fromMap({...createdDoc.data() ?? {}, 'id': createdDoc.id});
 
       // Notify nearby professionals
-      await _notificationService.notifyProfessionals(newJob);
+      await _notificationService.notifyProfessionals(createdJob);
 
       _setLoading(false);
       notifyListeners();
-      return newJob;
+      return createdJob;
     } catch (e) {
       _setError(getFriendlyErrorMessage(e));
       _setLoading(false);
