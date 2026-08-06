@@ -21,6 +21,7 @@ class Job {
     this.scheduledDate = data.scheduledDate;
     this.completedDate = data.completedDate;
     this.quotes = data.quotes || [];
+    this.expiresAt = data.expiresAt;
     this.acceptedQuoteId = data.acceptedQuoteId;
     this.paymentMethod = data.paymentMethod;
     this.isPaid = data.isPaid || false;
@@ -30,6 +31,7 @@ class Job {
     this.isRecurring = data.isRecurring || false;
     this.recurringFrequency = data.recurringFrequency;
     this.businessId = data.businessId;
+    this.professionalName = data.professionalName;
   }
 
   toJSON() {
@@ -61,6 +63,8 @@ class Job {
       isRecurring: this.isRecurring,
       recurringFrequency: this.recurringFrequency,
       businessId: this.businessId,
+      expiresAt: this.expiresAt,
+      professionalName: this.professionalName,
     };
   }
 
@@ -88,13 +92,36 @@ class Job {
     return results.slice(0, limit).map(data => new Job(data));
   }
 
+  static _normalizeDate(value) {
+    if (!value) return null;
+    if (value instanceof Date) return value;
+    if (typeof value.toDate === 'function') return value.toDate();
+    if (typeof value === 'number') return new Date(value);
+    return null;
+  }
+
+  isExpired() {
+    const now = new Date();
+    const expiresAt = Job._normalizeDate(this.expiresAt);
+    if (expiresAt) {
+      return expiresAt < now;
+    }
+
+    const createdAt = Job._normalizeDate(this.createdAt);
+    if (createdAt) {
+      return new Date(createdAt.getTime() + 24 * 60 * 60 * 1000) < now;
+    }
+
+    return false;
+  }
+
   static async findAvailable(filters = {}) {
     const conditions = [{ field: 'status', operator: '==', value: 'posted' }];
-    
+
     if (filters.category) {
       conditions.push({ field: 'category', operator: '==', value: filters.category });
     }
-    
+
     if (filters.urgency) {
       conditions.push({ field: 'urgency', operator: '==', value: filters.urgency });
     }
@@ -104,10 +131,20 @@ class Job {
       conditions,
       { field: 'createdAt', direction: 'desc' }
     );
-    return results.map(data => new Job(data));
+
+    return results
+      .filter((data) => {
+        const job = new Job(data);
+        return !job.isExpired();
+      })
+      .map(data => new Job(data));
   }
 
   static async create(data) {
+    if (!data.expiresAt) {
+      data.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    }
+
     const result = await createDocument(COLLECTIONS.JOBS, data);
     return new Job(result);
   }
@@ -132,7 +169,14 @@ class Job {
     return this;
   }
 
-  async acceptQuote(quoteId) {
+  async acceptQuote(quoteId, professionalName = null) {
+    if (this.isExpired()) {
+      throw new Error('Cannot accept quote for expired job');
+    }
+    if (this.acceptedQuoteId) {
+      throw new Error('A quote has already been accepted for this job');
+    }
+
     this.acceptedQuoteId = quoteId;
     this.status = 'accepted';
     const quote = this.quotes.find(q => q.id === quoteId);
@@ -140,6 +184,23 @@ class Job {
       this.professionalId = quote.professionalId;
       this.finalPrice = quote.price;
     }
+    if (professionalName) {
+      this.professionalName = professionalName;
+    }
+    this.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    if (this.quotes && this.quotes.length > 0) {
+      this.quotes = this.quotes.map((q) => {
+        if (q.id === quoteId) {
+          return { ...q, status: 'accepted' };
+        }
+        if (q.status === 'pending') {
+          return { ...q, status: 'rejected' };
+        }
+        return q;
+      });
+    }
+
     await this.save();
     return this;
   }

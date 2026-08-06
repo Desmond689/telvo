@@ -36,8 +36,9 @@ router.post('/',
         ...req.body,
         customerId: req.userId,
         status: 'posted',
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       };
-      
+       
       const job = await Job.create(jobData);
       
       // Notify professionals (in production, use push notifications)
@@ -176,12 +177,16 @@ router.post('/:id/quotes',
         return errorResponse(res, 'Job not found', 404);
       }
       
-      // Don't allow quotes on completed, cancelled, or already accepted jobs
+      // Don't allow quotes on completed, cancelled, already accepted, or expired jobs
       if (job.isCompleted() || job.isCancelled()) {
         return errorResponse(res, 'Cannot send quote for completed or cancelled job', 400);
       }
-      
-      if (job.status === 'accepted') {
+       
+      if (job.isExpired()) {
+        return errorResponse(res, 'Cannot send quote for expired job', 400);
+      }
+
+      if (job.acceptedQuoteId || job.status === 'accepted') {
         return errorResponse(res, 'Job already accepted by another professional', 400);
       }
       
@@ -229,18 +234,32 @@ router.post('/:id/accept-quote/:quoteId',
       if (job.isCompleted() || job.isCancelled()) {
         return errorResponse(res, 'Cannot accept quote for completed or cancelled job', 400);
       }
-      
+
+      if (job.isExpired()) {
+        return errorResponse(res, 'Cannot accept quote for expired job', 400);
+      }
+
+      if (job.acceptedQuoteId) {
+        return errorResponse(res, 'A quote has already been accepted for this job', 400);
+      }
+       
       const quote = job.quotes.find(q => q.id === quoteId);
       if (!quote) {
         return errorResponse(res, 'Quote not found', 404);
       }
-      
+       
       if (quote.status !== 'pending') {
         return errorResponse(res, 'Quote is no longer available', 400);
       }
-      
-      await job.acceptQuote(quoteId);
-      
+
+      let professionalName = null;
+      const professional = await User.findById(quote.professionalId);
+      if (professional) {
+        professionalName = professional.fullName || null;
+      }
+       
+      await job.acceptQuote(quoteId, professionalName);
+       
       // Notify professional (in production)
       logger.info(`Quote accepted: ${quoteId} for job ${job.id}`);
       

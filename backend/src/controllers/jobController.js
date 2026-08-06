@@ -14,6 +14,7 @@ const createJob = async (req, res) => {
       ...req.body,
       customerId: req.userId,
       status: 'posted',
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     };
     
     const job = await Job.create(jobData);
@@ -158,6 +159,14 @@ const acceptQuote = async (req, res) => {
     if (job.isCompleted() || job.isCancelled()) {
       return errorResponse(res, 'Cannot accept quote for completed or cancelled job', 400);
     }
+
+    if (job.isExpired()) {
+      return errorResponse(res, 'Cannot accept quote for expired job', 400);
+    }
+
+    if (job.acceptedQuoteId) {
+      return errorResponse(res, 'A quote has already been accepted for this job', 400);
+    }
     
     const quote = job.quotes.find(q => q.id === quoteId);
     if (!quote) {
@@ -167,8 +176,14 @@ const acceptQuote = async (req, res) => {
     if (quote.status !== 'pending') {
       return errorResponse(res, 'Quote is no longer available', 400);
     }
-    
-    await job.acceptQuote(quoteId);
+
+    let professionalName = null;
+    const professional = await User.findById(quote.professionalId);
+    if (professional) {
+      professionalName = professional.fullName || null;
+    }
+
+    await job.acceptQuote(quoteId, professionalName);
     logger.info(`Quote accepted: ${quoteId} for job ${job.id}`);
 
     try {

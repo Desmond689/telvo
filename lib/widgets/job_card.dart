@@ -25,6 +25,9 @@ class JobCard extends StatelessWidget {
     final cardColor = isDark
         ? const Color(0xFF111827)
         : AppColors.surface;
+    final assignedWorker = job.professionalName?.isNotEmpty == true
+        ? job.professionalName
+        : job.professionalId;
 
     return GestureDetector(
       onTap: onTap,
@@ -178,7 +181,7 @@ class JobCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                       ],
-                      if (job.status == 'accepted' && (job.professionalName != null && job.professionalName!.isNotEmpty))
+                      if (job.status == 'accepted' && assignedWorker != null && assignedWorker.isNotEmpty)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                           decoration: BoxDecoration(
@@ -186,7 +189,7 @@ class JobCard extends StatelessWidget {
                             borderRadius: BorderRadius.circular(16),
                           ),
                           child: Text(
-                            'Assigned to ${job.professionalName}',
+                            'Assigned to $assignedWorker',
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w700,

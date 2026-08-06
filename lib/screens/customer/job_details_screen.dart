@@ -30,7 +30,7 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    final hasWorker = _job?.professionalId?.isNotEmpty ?? false;
+    final hasWorker = (_job?.acceptedQuoteId?.isNotEmpty ?? false) || (_job?.professionalId?.isNotEmpty ?? false);
 
     return Scaffold(
       appBar: AppBar(
@@ -158,7 +158,9 @@ class _JobDetailsScreenState extends State<JobDetailsScreen> {
                           const Text('Assigned Professional', style: TextStyle(fontWeight: FontWeight.w700)),
                           const SizedBox(height: 4),
                           Text(
-                            _job?.professionalId ?? 'Unknown',
+                            _job?.professionalName?.isNotEmpty == true
+                                ? _job!.professionalName!
+                                : (_job?.professionalId ?? 'Unknown'),
                             style: const TextStyle(color: Colors.grey, fontSize: 12),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

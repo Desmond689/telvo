@@ -233,6 +233,33 @@ class JobProvider extends ChangeNotifier {
           }
         }
       } catch (_) { expiresAt = null; }
+
+      if (expiresAt == null && jobData['createdAt'] != null) {
+        try {
+          final createdAtRaw = jobData['createdAt'];
+          if (createdAtRaw is DateTime) {
+            expiresAt = createdAtRaw.add(const Duration(hours: 24));
+          } else if (createdAtRaw is Map && createdAtRaw.containsKey('_seconds')) {
+            final seconds = createdAtRaw['_seconds'] as int? ?? 0;
+            final nanoseconds = createdAtRaw['_nanoseconds'] as int? ?? 0;
+            expiresAt = DateTime.fromMillisecondsSinceEpoch(seconds * 1000 + (nanoseconds ~/ 1000000)).add(const Duration(hours: 24));
+          } else {
+            try {
+              final dynamic v = createdAtRaw;
+              final dt = v.toDate();
+              if (dt is DateTime) expiresAt = dt.add(const Duration(hours: 24));
+            } catch (_) {
+              if (createdAtRaw is String) {
+                final parsed = DateTime.tryParse(createdAtRaw);
+                if (parsed != null) expiresAt = parsed.add(const Duration(hours: 24));
+              }
+            }
+          }
+        } catch (_) {
+          expiresAt = null;
+        }
+      }
+
       if (expiresAt != null && expiresAt.isBefore(DateTime.now())) {
         _setError('This job has expired and is no longer accepting quotes.');
         _setLoading(false);
@@ -269,80 +296,150 @@ class JobProvider extends ChangeNotifier {
       _setLoading(true);
       _setError(null);
 
-      // Fetch the quote to determine the professional.
-      final quoteDoc = await _firestore.collection('quotes').doc(quoteId).get();
-      final professionalId = quoteDoc.exists
-          ? (quoteDoc.data() != null
-              ? quoteDoc.data()!['professionalId'] as String?
-              : null)
-          : null;
+      final quoteRef = _firestore.collection('quotes').doc(quoteId);
+      final quoteSnapshot = await quoteRef.get();
+      if (!quoteSnapshot.exists) {
+        _setError('Quote not found');
+        _setLoading(false);
+        return;
+      }
 
-      final jobRef = _firestore.collection('jobs').doc(jobId);
+      final quoteData = quoteSnapshot.data()!;
+      final professionalId = quoteData['professionalId'] as String?;
+      final quoteStatus = (quoteData['status'] as String?)?.toLowerCase() ?? '';
+      if (quoteStatus != 'pending') {
+        _setError('Quote is no longer available');
+        _setLoading(false);
+        return;
+      }
 
-      // Fetch professional info for display
       String? professionalName;
-      if (professionalId != null && professionalId!.isNotEmpty) {
+      if (professionalId != null && professionalId.isNotEmpty) {
         final profDoc = await _firestore.collection('users').doc(professionalId).get();
         if (profDoc.exists) {
           professionalName = profDoc.data()?['fullName'] as String?;
         }
       }
 
-      await jobRef.update({
-        'status': 'accepted',
-        'acceptedQuoteId': quoteId,
-        'professionalId': professionalId,
-        if (professionalName != null) 'professionalName': professionalName,
-        // Set expiry 24 hours after acceptance so UI/backend can cleanup
-        'expiresAt': DateTime.now().add(const Duration(hours: 24)),
+      final jobRef = _firestore.collection('jobs').doc(jobId);
+      final now = DateTime.now();
+
+      await _firestore.runTransaction((transaction) async {
+        final jobSnapshot = await transaction.get(jobRef);
+        if (!jobSnapshot.exists) {
+          throw Exception('Job not found');
+        }
+
+        final jobData = jobSnapshot.data()!;
+        final acceptedQuoteId = (jobData['acceptedQuoteId'] as String?)?.trim() ?? '';
+        final status = (jobData['status'] as String?)?.toLowerCase() ?? '';
+
+        DateTime? expiresAt;
+        final expiryRaw = jobData['expiresAt'];
+        if (expiryRaw is DateTime) {
+          expiresAt = expiryRaw;
+        } else if (expiryRaw is Map && expiryRaw.containsKey('_seconds')) {
+          final seconds = expiryRaw['_seconds'] as int? ?? 0;
+          final nanoseconds = expiryRaw['_nanoseconds'] as int? ?? 0;
+          expiresAt = DateTime.fromMillisecondsSinceEpoch(seconds * 1000 + (nanoseconds ~/ 1000000));
+        } else if (expiryRaw != null) {
+          try {
+            final value = expiryRaw;
+            final dt = value.toDate();
+            if (dt is DateTime) expiresAt = dt;
+          } catch (_) {}
+        }
+
+        if (expiresAt == null && jobData['createdAt'] != null) {
+          final createdAtRaw = jobData['createdAt'];
+          if (createdAtRaw is DateTime) {
+            expiresAt = createdAtRaw.add(const Duration(hours: 24));
+          } else if (createdAtRaw is Map && createdAtRaw.containsKey('_seconds')) {
+            final seconds = createdAtRaw['_seconds'] as int? ?? 0;
+            final nanoseconds = createdAtRaw['_nanoseconds'] as int? ?? 0;
+            expiresAt = DateTime.fromMillisecondsSinceEpoch(seconds * 1000 + (nanoseconds ~/ 1000000)).add(const Duration(hours: 24));
+          } else {
+            try {
+              final value = createdAtRaw;
+              final dt = value.toDate();
+              if (dt is DateTime) expiresAt = dt.add(const Duration(hours: 24));
+            } catch (_) {}
+          }
+        }
+
+        if (expiresAt != null && expiresAt.isBefore(now)) {
+          throw Exception('This job has expired and is no longer accepting quotes.');
+        }
+
+        if (acceptedQuoteId.isNotEmpty || status == 'accepted' || status == 'worker_selected') {
+          throw Exception('This job is no longer accepting quotes.');
+        }
+
+        transaction.update(jobRef, {
+          'status': 'accepted',
+          'acceptedQuoteId': quoteId,
+          'professionalId': professionalId,
+          if (professionalName != null) 'professionalName': professionalName,
+          'expiresAt': now.add(const Duration(hours: 24)),
+        });
+        transaction.update(quoteRef, {
+          'status': 'accepted',
+        });
       });
 
-      // Update the quote status.
-      await _firestore.collection('quotes').doc(quoteId).update({
-        'status': 'accepted',
-      });
-
-      // Reject all other quotes for this job.
       final otherQuotes = await _firestore
           .collection('quotes')
           .where('jobId', isEqualTo: jobId)
           .get();
       for (final doc in otherQuotes.docs) {
-        if (doc.id != quoteId) {
+        if (doc.id != quoteId && (doc.data()['status'] as String?)?.toLowerCase() == 'pending') {
           await doc.reference.update({'status': 'rejected'});
         }
       }
 
-      // Notify accepted professional
-      final job = _jobs.firstWhere(
-        (j) => j.id == jobId,
-        orElse: () => JobModel(),
-      );
-      QuoteModel? selectedQuote;
-      if (job.quotes != null) {
-        try {
-          selectedQuote = job.quotes!.firstWhere((q) => q.id == quoteId);
-        } catch (_) {
-          selectedQuote = null;
-        }
-      }
-      if (selectedQuote != null && selectedQuote.jobId != null) {
-        await _notificationService.notifyQuoteAccepted(selectedQuote);
+      final quote = QuoteModel.fromMap({...quoteData, 'id': quoteId});
+      if (quote.jobId != null) {
+        await _notificationService.notifyQuoteAccepted(quote);
       }
 
-      // Optimistically update local job copy so UI shows professionalName/status immediately
       try {
         final idx = _jobs.indexWhere((j) => j.id == jobId);
         if (idx != -1) {
           final existing = _jobs[idx];
-          final updated = existing.copyWith(
+          _jobs[idx] = existing.copyWith(
             status: 'accepted',
             acceptedQuoteId: quoteId,
             professionalId: professionalId,
             professionalName: professionalName,
+            expiresAt: now.add(const Duration(hours: 24)),
           );
-          _jobs[idx] = updated;
         }
+      } catch (_) {}
+
+      try {
+        final myIdx = _myJobs.indexWhere((j) => j.id == jobId);
+        if (myIdx != -1) {
+          final existing = _myJobs[myIdx];
+          _myJobs[myIdx] = existing.copyWith(
+            status: 'accepted',
+            acceptedQuoteId: quoteId,
+            professionalId: professionalId,
+            professionalName: professionalName,
+            expiresAt: now.add(const Duration(hours: 24)),
+          );
+        }
+      } catch (_) {}
+
+      try {
+        _quotes = _quotes.map((q) {
+          if (q.id == quoteId) {
+            return q.copyWith(status: 'accepted');
+          }
+          if (q.jobId == jobId && q.status?.toLowerCase() == 'pending') {
+            return q.copyWith(status: 'rejected');
+          }
+          return q;
+        }).toList();
       } catch (_) {}
 
       _setLoading(false);
