@@ -14,6 +14,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: false
+          fetch-depth: 0
 
       - name: Verify Cloudinary Configuration
         shell: bash
@@ -21,7 +22,7 @@ jobs:
           CLOUDINARY_CLOUD_NAME: ${{ secrets.CLOUDINARY_CLOUD_NAME }}
           CLOUDINARY_UPLOAD_PRESET: ${{ secrets.CLOUDINARY_UPLOAD_PRESET }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           missing=()
 
           if [ -z "${CLOUDINARY_CLOUD_NAME:-}" ]; then
