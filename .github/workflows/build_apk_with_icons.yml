@@ -13,12 +13,15 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          # Pin to a concrete Flutter release to avoid ambiguity in CI
-          # and ensure the flutter_launcher_icons step runs reliably.
-          flutter-version: '3.10.6'
+          # Use the current stable Flutter release so the project SDK constraints
+          # are satisfied and icon generation runs reliably in CI.
+          flutter-version: 'stable'
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Clean previous build outputs
+        run: flutter clean
 
       - name: Generate launcher icons
         run: flutter pub run flutter_launcher_icons:main
